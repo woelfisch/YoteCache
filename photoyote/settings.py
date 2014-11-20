@@ -76,7 +76,25 @@ USE_L10N = True
 USE_TZ = True
 
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
+
+PHOTODIR = '/data/camera/'
+IMPORTDIR = PHOTODIR+'import/'  # contains dirs with imported images
+JPEGDIR = PHOTODIR+'jpeg/'      # just hardlink if import file is JPEG
+EXPORTDIR = PHOTODIR+'export/'  # hardlink if not marked as rejected, add XMP sidecar data w/ rating
+THUMBNAILDIR = 'tn/'    # JPEGDIR + subdir + THUMBNAILDIR + filename
+
+"""
+ <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>
+  <xmp:CreateDate>2014-02-26T16:39:52</xmp:CreateDate>
+  <xmp:CreatorTool>Adobe Photoshop Lightroom 4.4 (Windows)</xmp:CreatorTool>
+  <xmp:Label>Rot</xmp:Label>
+  <xmp:MetadataDate>2014-06-02T22:57:08Z</xmp:MetadataDate>
+  <xmp:ModifyDate>2014-06-02T22:57:08</xmp:ModifyDate>
+  <xmp:Rating>3</xmp:Rating>
+ </rdf:Description>
+"""
