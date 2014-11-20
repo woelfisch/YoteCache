@@ -35,6 +35,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'photos',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -83,10 +84,14 @@ USE_TZ = True
 STATIC_URL = '/static/'
 
 PHOTODIR = '/data/camera/'
-IMPORTDIR = PHOTODIR+'import/'  # contains dirs with imported images
-JPEGDIR = PHOTODIR+'jpeg/'      # just hardlink if import file is JPEG
-EXPORTDIR = PHOTODIR+'export/'  # hardlink if not marked as rejected, add XMP sidecar data w/ rating
+SOURCEDIR = PHOTODIR+'import/'  # contains dirs with imported images
+JPEGDIR = PHOTODIR+'jpeg/'      # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
+EXPORTDIR = PHOTODIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
 THUMBNAILDIR = 'tn/'    # JPEGDIR + subdir + THUMBNAILDIR + filename
+WEBIMAGEDIR = "web/"
+
+THUMBNAILSIZE = '128x128>'
+WEBSIZE = '720x720>'
 
 """
  <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>
