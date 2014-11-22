@@ -83,6 +83,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
+WWWUSER = "wwwrun"
+WWWGROUP = "www"
+
 PHOTODIR = '/data/camera/'
 SOURCEDIR = PHOTODIR+'import/'  # contains dirs with imported images
 JPEGDIR = PHOTODIR+'jpeg/'      # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
