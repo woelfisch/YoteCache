@@ -96,6 +96,11 @@ WEBIMAGEDIR = "web/"
 THUMBNAILSIZE = '128x128>'
 WEBSIZE = '720x720>'
 
+DEFAULT_CATALOG='uncataloged'
+UNKNOWN_MIME_TYPE='application/octet-stream'
+
+MAX_PATH = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
+
 """
  <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>
   <xmp:CreateDate>2014-02-26T16:39:52</xmp:CreateDate>

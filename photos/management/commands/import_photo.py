@@ -5,11 +5,14 @@ import os
 import os.path
 
 from dateutil import tz
+from fractions import Fraction
+import magic    # python-magic
 from wand.image import Image  # Wand
 from gi.repository import GExiv2  # libgexiv2-2, typelib-1_0-GExiv2-0_4, python-gobject2
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from photos.tools import toolbox
+from photos.models import MimeType, Catalog, MediaFile
 
 class Command(BaseCommand):
     """
@@ -44,7 +47,7 @@ class Command(BaseCommand):
         if mode == self.PROXY_FULLSIZE and is_jpeg and orientation == orientation.NORMAL:
             try:
                 os.unlink(dest)
-            except:
+            except Exception as e:
                 pass
 
             try:
@@ -85,17 +88,119 @@ class Command(BaseCommand):
 
         return
 
+    def write_xmp_sidecar(self, sourcefile):
+        destxmppath=os.path.splitext(sourcefile)[0]+'.xmp'
+        try:
+            # how brain-damaged is this?!
+            fd=open(destxmppath, mode='w+')
+            fd.write('<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"></x:xmpmeta>')
+            fd.close()
+            self.exif.save_file(destxmppath)
+        except Exception as e:
+            self.stderr.write('Error: cannot write {}: {}'.format(destxmppath, e))
 
-    def do_import(self, sourcefullpath):
-        sourcefullpath = os.path.abspath(sourcefullpath)
-        if not sourcefullpath.startswith(settings.SOURCEDIR):
-            self.stderr.write('Error: {} is not below directory {}'.format(sourcefullpath, settings.SOURCEDIR))
-            return
+        return destxmppath
 
-        if not os.path.isfile(sourcefullpath):
-            self.stderr.write('Error: {} is does not exist or is not a file'.format(sourcefullpath))
-            return
+    def get_timestamp(self, sourcefullpath):
+        # first try to get it from EXIF data
+        timestamp=self.exif.get_tag_string('Exif.Photo.DateTimeOriginal')
+        if not timestamp:
+            timestamp=self.exif.get_tag_string('Exif.Image.DateTime')
+        # try timestamp of file
+        if not timestamp:
+            st=os.stat(sourcefullpath)
+            timestruct=tz.time.gmtime(int(st.st_ctime))
+            # camera clock not set, eh?
+            if timestruct.tm_year < 2000:
+                timestruct=tz.time.gmtime()
+            return timestruct
 
+        return tz.time.strptime(timestamp, '%Y:%m:%d %H:%M:%S')
+
+    def create_filename(self, sourcefullpath, timestruct):
+        datestring=tz.time.strftime("%Y%m%d", timestruct)
+        mediabasename=os.path.basename(sourcefullpath).lower()
+        filename=datestring+"-"+mediabasename
+        count=1
+        while count < 1000000:
+            try:
+                MediaFile.objects.get(filename=filename)
+            except Exception as e:
+                break
+            filename='{}-{:06d}-{}'.format(datestring, count, mediabasename)
+            count+=1
+
+        if count == 1000000:
+            self.stderr.write('Error: Cannot create unique export filename')
+            return None
+
+        return filename
+
+    def update_image_parameters(self, entry):
+        try:
+            entry.f_number=Fraction(self.exif.get_tag_string('Exif.Photo.FNumber'))*1.0
+        except Exception:
+            entry.f_number=0
+
+        try:
+            entry.exposure_time=Fraction(self.exif.get_tag_string('Exif.Photo.ExposureTime'))*1.0
+        except Exception:
+            entry.exposure_time=0
+
+        try:
+            entry.gain_value=float(self.exif.get_tag_string('Exif.Photo.ISOSpeedRatings'))
+        except Exception:
+            try:
+                entry.gain_value=float(self.exif.get_tag_string('Exif.Photo.GainControl'))
+            except Exception:
+                entry.gain_value=0
+
+        try:
+            entry.focal_length=Fraction(self.exif.get_tag_string('Exif.Photo.FocalLength'))*1.0
+        except Exception as e:
+            entry.focal_length=0
+
+    def update_db(self, sourcefullpath, sourcerelpath, sidecar):
+        entry=None
+        try:
+            entry=MediaFile.objects.get(mediafile_path=sourcerelpath)
+            if not self.force:
+                return entry
+        except MediaFile.DoesNotExist:
+            timestamp=self.get_timestamp(sourcefullpath)
+            filename=self.create_filename(sourcefullpath, timestamp)
+            if not filename:
+                return
+
+            catalog, created=Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)
+            mime_type, created=MimeType.objects.get_or_create(type=self.mimetype)
+
+            try:
+                entry=MediaFile(mediafile_path=sourcerelpath)
+
+            except Exception as e:
+                self.stderr.write('Error: Cannot get object: {}'.format(e.message))
+                raise e
+
+            entry.mime_type=mime_type
+            entry.catalog=catalog
+            entry.filename=filename
+            entry.date=tz.time.strftime('%Y-%m-%dT%H:%M:%SZ', timestamp)
+
+            rating=self.exif.get_tag_long('Xmp.xmp.Rating')
+            if rating:
+                entry.rating=rating
+            label=self.exif.get_tag_string('Xmp.xmp.Label')
+            if label:
+                entry.label=label
+
+            entry.sidecar_path=sidecar
+
+        self.update_image_parameters(entry)
+        return entry
+
+    def import_image(self, sourcefullpath):
+        self.image = None
         # prefer XMP "sidecar" files to save us from parsing huge RAW files more than necessary
         sourcexmppath = os.path.splitext(sourcefullpath)[0]
         havesourcesidecar = False
@@ -104,7 +209,7 @@ class Command(BaseCommand):
                 sourcexmppath += ext
                 try:
                     havesourcesidecar = self.exif.open_path(sourcexmppath)  # returns True on success
-                except:
+                except Exception:
                     pass
 
                 break
@@ -119,43 +224,86 @@ class Command(BaseCommand):
 
         try:
             jpegdir = settings.JPEGDIR + jpegreldir
+            jpegfullpath = jpegdir+'/'+jpegname
             toolbox.mkdir(jpegdir)
-            self.create_proxy(sourcefullpath, jpegdir + '/' + jpegname, self.PROXY_FULLSIZE)
+            self.create_proxy(sourcefullpath, jpegfullpath, self.PROXY_FULLSIZE)
         except Exception as e:
-            return
+            raise e
 
         try:
             tndir = jpegdir + "/" + settings.THUMBNAILDIR
+            tnfullpath = tndir+'/'+jpegname
             toolbox.mkdir(tndir)
-            self.create_proxy(sourcefullpath, tndir + "/" + jpegname, self.PROXY_THUMBNAIL)
+            self.create_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
-            return
+            os.unlink(jpegfullpath)
+            raise e
 
         try:
             webimgdir = jpegdir + "/" + settings.WEBIMAGEDIR
+            webimgfullpath = webimgdir+'/'+jpegname
             toolbox.mkdir(webimgdir)
-            self.create_proxy(sourcefullpath, webimgdir + "/" + jpegname, self.PROXY_WEBSIZED)
+            self.create_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
+            os.unlink(jpegfullpath)
+            os.unlink(tnfullpath)
+            raise e
+
+        # we need to write the XMP sidecar file here as we definitely do not want to parse
+        # RAW files from the web app and exiv2 isn't capable to construct it's content without
+        # a source file. A sidecar file is required for import of the rating and label tags
+        # with lightroom, though.
+        #
+        # ATTN: We'll write it to SOURCEDIR. The web app should never touch the proxy dirs
+        # by itself
+
+        if not havesourcesidecar:
+            sourcexmppath=self.write_xmp_sidecar(sourcefullpath)
+
+        xmprelpath = os.path.relpath(sourcexmppath, settings.SOURCEDIR)
+        entry=self.update_db(sourcefullpath, sourcerelpath, xmprelpath)
+        entry.save()
+
+    def import_video(self, sourcefullpath):
+        '''idea: ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif'''
+        '''(maybe avconv of libav-tools)'''
+        raise NotImplementedError
+
+    def do_import(self, sourcefullpath):
+        sourcefullpath = os.path.abspath(sourcefullpath)
+        if not sourcefullpath.startswith(settings.SOURCEDIR):
+            self.stderr.write('Error: {} is not below directory {}'.format(sourcefullpath, settings.SOURCEDIR))
             return
 
-        # ''' do we even need this? '''
-        #destxmppath=os.path.splitext(jpegfullpath)[0]+'.xmp'
-        #if havesourcesidecar:
-        #    if self.force:
-        #        try:
-        #            os.unlink(destxmppath)
-        #        except:
-        #            pass
-        #    try:
-        #        fd=open(destxmppath,mode='w+')
-        #        fd.write('<?xml version="1.0" encoding="UTF-8"?>')
-        #        fd.close()
-        #        self.exif.save_file(destxmppath)
-        #    except Exception as e:
-         #        self.stderr.write('Error: cannot write {}: {}'.format(destxmppath, e))
+        if not os.path.isfile(sourcefullpath):
+            self.stderr.write('Error: {} is does not exist or is not a file'.format(sourcefullpath))
+            return
 
-            # database: if entry exists (key: jpegreldir) and force mode: update w/ XMP data
-            # else: create new entry
+        self.mimetype=magic.from_file(filename=sourcefullpath, mime=True)
+        extension=os.path.splitext(sourcefullpath)[1].lower()
+
+        # image, but skip video thumbnail (handled by do_import_video and exporter)
+        if self.mimetype.startswith('image/') and extension != '.thm':
+            try:
+                self.import_image(sourcefullpath)
+                return
+            except Exception as e:
+                self.stderr.write('Error: {}'.format(e.message))
+                pass
+
+        # video, yay.
+        if self.mimetype.startswith('video/'):
+            try:
+                self.import_video(sourcefullpath)
+                return
+            except Exception as e:
+                self.stderr.write('Error: {}'.format(e.message))
+                pass
+
+        # sidecar gets handled explicitly by exporter
+        if extension == '.xmp':
+            return
+
 
     def handle(self, *args, **options):
         self.force = options['force_mode']
