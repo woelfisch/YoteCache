@@ -6,3 +6,4 @@
 .coverage
 local_settings.py
 /static
+.idea
