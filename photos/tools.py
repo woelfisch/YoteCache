@@ -6,6 +6,26 @@ from sys import stderr
 
 class toolbox:
     @staticmethod
+    def www_user():
+        for username in ('wwwrun', 'www-data', 'www', 'apache', 'httpd'):
+            try:
+                pw=getpwnam(username)
+                return pw.pw_uid
+            except:
+                pass
+        return getpwnam('nobody').pw_uid
+
+    @staticmethod
+    def www_group():
+        for groupname in ('www', 'www-data', 'apache', 'httpd'):
+            try:
+                gr=getgrnam(groupname)
+                return gr.gr_gid
+            except:
+                pass
+        return getgrnam('nogroup').gr_gid
+
+    @staticmethod
     def mkdir(path):
         try:
             os.makedirs(path)
@@ -16,7 +36,7 @@ class toolbox:
                 stderr.write('Error: cannot create directory {}: {}'.format(path, e.message))
                 raise e
         try:
-            os.chown(path, getpwnam(settings.WWWUSER).pw_uid, getgrnam(settings.WWWGROUP).gr_gid)
+            os.chown(path, settings.WWWUSER, settings.WWWGROUP)
             os.chmod(path, 0755)
         except (KeyError, OSError) as e:
             stderr.write('Warning: cannot change owner / group of {}: {}'.format(path, e.message))

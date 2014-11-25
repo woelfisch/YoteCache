@@ -266,7 +266,7 @@ class Command(BaseCommand):
 
     def import_video(self, sourcefullpath):
         '''idea: ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif'''
-        '''(maybe avconv of libav-tools)'''
+        '''or:   avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif'''
         raise NotImplementedError
 
     def do_import(self, sourcefullpath):

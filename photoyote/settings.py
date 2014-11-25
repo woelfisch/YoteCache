@@ -83,8 +83,8 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-WWWUSER = "wwwrun"
-WWWGROUP = "www"
+WWWUSER = toolbox.www_user()
+WWWGROUP = toolbox.www_group()
 
 PHOTODIR = '/data/camera/'
 SOURCEDIR = PHOTODIR+'import/'  # contains dirs with imported images
