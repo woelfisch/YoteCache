@@ -324,7 +324,15 @@ class Command(BaseCommand):
             os.unlink(tnfullpath)
             raise e
 
-        # update db
+        if not havesourcesidecar:
+            sourcesidecarpath=self.write_xmp_sidecar(sourcefullpath)
+            self.exif.open_path(sourcesidecarpath)
+            sidecarrelpath = os.path.relpath(sourcesidecarpath, settings.SOURCEDIR)
+        else:
+            sidecarrelpath = os.path.relpath(sourcethmpath, settings.SOURCEDIR)
+
+        entry = self.update_db(sourcefullpath, sourcerelpath, sidecarrelpath)
+        entry.save()
 
 
 
@@ -347,7 +355,7 @@ class Command(BaseCommand):
                 self.import_image(sourcefullpath)
                 return
             except Exception as e:
-                self.stderr.write('Error: {}'.format(e.message))
+                self.stderr.write('Error: {} in line {}'.format(e.message, sys.exc_info()[-1].tb_lineno))
                 pass
 
         # video, yay.
@@ -356,7 +364,7 @@ class Command(BaseCommand):
                 self.import_video(sourcefullpath)
                 return
             except Exception as e:
-                self.stderr.write('Error: {}'.format(e.message))
+                self.stderr.write('Error: {} in line {}'.format(e.message, sys.exc_info()[-1].tb_lineno))
                 pass
 
         # sidecar gets handled explicitly by exporter

@@ -133,23 +133,30 @@ class MediaFile(models.Model):
 
     # granted, this is business logic and doesn't really belong here, but...
     def create_xmp(self):
-        xmpfile=self.catalog.get_path()+toolbox.get_xmp_name(self.filename)
-        try:
-            os.unlink(xmpfile)
-        except:
-            pass
+        exif=GExiv2.Metadata()
+        exif.open_path(settings.SOURCEDIR+self.sidecar_path)
+        sidecar_label=exif.get_tag_interpreted_string('Xmp.xmp.Label')
+        sidecar_rating=exif.get_tag_long('Xmp.xmp.Label')
 
         sidecar_is_xmp=toolbox.sidecar_is_xmp(self.sidecar_path)
-        if (not self.rating or self.rating == 0) and (not self.label or self.label == 'None'):
-            if sidecar_is_xmp:
+        xmpfile=self.catalog.get_path()+toolbox.get_xmp_name(self.filename)
+        if sidecar_is_xmp:
+            try:
+                os.unlink(xmpfile)
+            except:
+                pass
+
+            if (not self.rating or self.rating == sidecar_rating) and (not self.label or self.label == sidecar_label):
                 os.link(settings.SOURCEDIR+self.sidecar_path, xmpfile)
                 return
 
-        exif=GExiv2.Metadata()
-        if sidecar_is_xmp:
-            exif.open_path(settings.SOURCEDIR+self.sidecar_path)
-        else:
-            exif.open_path(settings.SOURCEDIR+toolbox.get_xmp_name(self.mediafile_path))
+        try:
+            fd=open(xmpfile, 'w')
+            fd.write('<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"></x:xmpmeta>')
+            fd.close()
+        except IOError as e:
+            sys.stderr.write('Error: Cannot create {}: {}'.format(xmpfile, e.message))
+            return
 
         exif.register_xmp_namespace('http://ns.adobe.com/xap/1.0/', 'xmp')
         exif.set_tag_string('Xmp.xmp.Label', self.label.__str__())
