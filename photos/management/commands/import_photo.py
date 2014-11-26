@@ -324,6 +324,8 @@ class Command(BaseCommand):
             os.unlink(tnfullpath)
             raise e
 
+        # update db
+
 
 
     def do_import(self, sourcefullpath):
