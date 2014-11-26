@@ -42,6 +42,14 @@ class toolbox:
             stderr.write('Warning: cannot change owner / group of {}: {}'.format(path, e.message))
 
     @staticmethod
+    def is_in_path(filename):
+        # this doesn't take the pathological case of path elements containing quoted colons into account...
+        for dir in os.environ['PATH'].split(':'):
+            if os.path.isfile(dir+'/'+filename):
+                return True
+        return False
+
+    @staticmethod
     def link(source, dest):
         try:
             os.unlink(dest)

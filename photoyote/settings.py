@@ -102,6 +102,22 @@ UNKNOWN_MIME_TYPE='application/octet-stream'
 
 MAX_PATH = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
 
+VIDEO_PREVIEWTIME=30
+VIDEO_WEBSIZE=768
+VIDEO_THUMBNAILSIZE=128
+
+if toolbox.is_in_path('avconv'):
+    FFMPEG_COMMAND='avconv'
+    FFMPEG_FILTER='select=eq(pict_type\,I),scale={:d}:-1,format=rgb8'
+    FFMPEG_EXTRA=['-pix_fmt', 'rgb24']
+elif toolbox.is_in_path('ffmpeg'):
+    FFMPEG_COMMAND='ffmpeg'
+    FFMPEG_FILTER='select=eq(pict_type\,PICT_TYPE_I),scale={:d}:-1'
+    FFMPEG_EXTRA=[]
+else:
+    FFMPEG_COMMAND=None
+
+
 """
  <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>
   <xmp:CreateDate>2014-02-26T16:39:52</xmp:CreateDate>

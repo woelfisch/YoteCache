@@ -4,6 +4,7 @@ import sys
 import os
 import os.path
 
+from subprocess import call
 from dateutil import tz
 from fractions import Fraction
 import magic    # python-magic
@@ -87,6 +88,27 @@ class Command(BaseCommand):
             raise e
 
         return
+
+    def create_video_proxy(self, source, dest, mode):
+        self.stdout.write('Status: create_video_proxy called for {}, {}, {}'.format(source, dest, mode))
+        if os.path.isfile(dest) and not self.force:
+            return
+
+        if mode == self.PROXY_THUMBNAIL:
+            resize_to=settings.VIDEO_THUMBNAILSIZE
+        elif mode == self.PROXY_WEBSIZED:
+            resize_to=settings.VIDEO_WEBSIZE
+        else:
+            return
+
+        # ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif'''
+        # avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif'''
+
+        call([settings.FFMPEG_COMMAND, '-i', source, '-vsync', '0',
+              '-vf', settings.FFMPEG_FILTER.format(resize_to),
+              '-r', '10', '-t', '{:d}'.format(settings.VIDEO_PREVIEWTIME),
+              '-y', '-v', 'quiet'] +
+             settings.FFMPEG_EXTRA+[dest], shell=False)
 
     def write_xmp_sidecar(self, sourcefile):
         destxmppath=os.path.splitext(sourcefile)[0]+'.xmp'
@@ -265,9 +287,44 @@ class Command(BaseCommand):
         entry.save()
 
     def import_video(self, sourcefullpath):
-        '''idea: ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif'''
-        '''or:   avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif'''
-        raise NotImplementedError
+        if not settings.FFMPEG_COMMAND:
+            raise NotImplementedError
+
+        sourcethmpath = os.path.splitext(sourcefullpath)[0]
+        havesourcesidecar = False
+        for ext in (".thm", ".THM", "Thm"):
+            if os.path.isfile(sourcethmpath + ext):
+                sourcethmpath += ext
+                try:
+                    havesourcesidecar = self.exif.open_path(sourcethmpath)  # returns True on success
+                except Exception:
+                    pass
+
+                break
+
+        sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCEDIR)
+        (jpegreldir, gifname) = os.path.split(sourcerelpath)
+        jpegdir = settings.JPEGDIR + jpegreldir
+        gifname = os.path.splitext(gifname)[0] + ".gif"
+
+        try:
+            tndir = jpegdir + "/" + settings.THUMBNAILDIR
+            tnfullpath = tndir+'/'+gifname
+            toolbox.mkdir(tndir)
+            self.create_video_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
+        except Exception as e:
+            raise e
+
+        try:
+            webimgdir = jpegdir + "/" + settings.WEBIMAGEDIR
+            webimgfullpath = webimgdir+'/'+gifname
+            toolbox.mkdir(webimgdir)
+            self.create_video_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
+        except Exception as e:
+            os.unlink(tnfullpath)
+            raise e
+
+
 
     def do_import(self, sourcefullpath):
         sourcefullpath = os.path.abspath(sourcefullpath)
