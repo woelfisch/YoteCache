@@ -13,7 +13,7 @@ from wand.image import Image  # Wand
 from gi.repository import GExiv2  # libgexiv2-2, typelib-1_0-GExiv2-0_4, python-gobject2
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from photos.tools import toolbox
+from photos.tools import toolbox, StatusWriter
 from photos.models import MimeType, Catalog, MediaFile
 
 class Command(BaseCommand):
@@ -31,6 +31,7 @@ class Command(BaseCommand):
     force = False
     image = None
     exif = GExiv2.Metadata()
+    status = None
 
     PROXY_FULLSIZE = 0
     PROXY_THUMBNAIL = 1
@@ -250,6 +251,7 @@ class Command(BaseCommand):
         (mediareldir, jpegfilename) = os.path.split(sourcerelpath)
         jpegfilename = os.path.splitext(jpegfilename)[0] + ".jpg"
 
+        self.status.update(10, 'Writing Proxy')
         try:
             mediadir = settings.WEB_DIR + mediareldir
             jpegfullpath = mediadir+'/'+jpegfilename
@@ -258,6 +260,7 @@ class Command(BaseCommand):
         except Exception as e:
             raise e
 
+        self.status.update(75, 'Writing Thumbnail')
         try:
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir+'/'+jpegfilename
@@ -267,6 +270,7 @@ class Command(BaseCommand):
             os.unlink(jpegfullpath)
             raise e
 
+        self.status.update(85, 'Writing Preview')
         try:
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir+'/'+jpegfilename
@@ -290,7 +294,9 @@ class Command(BaseCommand):
 
         xmprelpath = os.path.relpath(sourcexmppath, settings.SOURCE_DIR)
         entry=self.update_db(sourcefullpath, sourcerelpath, xmprelpath)
+        self.status.update(95, 'Writing Database')
         entry.save()
+        self.status.update(100, 'Done')
 
     def import_video(self, sourcefullpath, sourcerelpath):
         if not settings.FFMPEG_COMMAND:
@@ -308,27 +314,30 @@ class Command(BaseCommand):
 
                 break
 
-        (mediareldir, gifname) = os.path.split(sourcerelpath)
+        (mediareldir, giffilename) = os.path.split(sourcerelpath)
         mediadir = settings.WEB_DIR + mediareldir
-        gifname = os.path.splitext(gifname)[0] + ".gif"
+        giffilename = os.path.splitext(giffilename)[0] + ".gif"
 
+        self.status.update(10, 'Writing Thumbnail')
         try:
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
-            tnfullpath = tndir+'/'+gifname
+            tnfullpath = tndir+'/'+giffilename
             toolbox.mkdir(tndir)
             self.create_video_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             raise e
 
+        self.status.update(50, 'Writing Proxy')
         try:
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
-            webimgfullpath = webimgdir+'/'+gifname
+            webimgfullpath = webimgdir+'/'+giffilename
             toolbox.mkdir(webimgdir)
             self.create_video_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(tnfullpath)
             raise e
 
+        self.status.update(90, 'Writing Sidecar')
         if not havesourcesidecar:
             sourcesidecarpath=self.write_xmp_sidecar(sourcefullpath)
             self.exif.open_path(sourcesidecarpath)
@@ -337,25 +346,33 @@ class Command(BaseCommand):
             sidecarrelpath = os.path.relpath(sourcethmpath, settings.SOURCE_DIR)
 
         entry = self.update_db(sourcefullpath, sourcerelpath, sidecarrelpath)
+        self.status.update(95, 'Writing Database')
         entry.save()
+        self.status.update(100, 'Done')
 
     def import_other(self, sourcefullpath, sourcerelpath):
         entry = self.update_db(sourcefullpath, sourcerelpath, is_supported_media=False)
         if entry.mime_type.copy:
+            self.status.update(50, 'Writing Database')
             entry.save()
+        self.status.update(100, 'Done')
 
     def do_import(self, sourcefullpath):
+        self.status=StatusWriter(settings.IMPORT_STATUS, sourcefullpath, 'Start')
         sourcefullpath = os.path.abspath(sourcefullpath)
         if not sourcefullpath.startswith(settings.SOURCE_DIR):
             logging.critical('{} is not below directory {}'.format(sourcefullpath, settings.SOURCE_DIR))
+            self.status.error('Broken Configuration')
             return
 
         if not os.path.isfile(sourcefullpath):
             logging.critical('{} does not exist or is not a file'.format(sourcefullpath))
+            self.status.error('Not a File')
             return
 
         sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCE_DIR)
 
+        self.status.update(5, 'Examining File Type')
         self.mimetype=magic.from_file(filename=sourcefullpath, mime=True)
         extension=os.path.splitext(sourcefullpath)[1].lower()
 
@@ -366,6 +383,7 @@ class Command(BaseCommand):
                 return
             except Exception as e:
                 logging.warning('Importer: ',exc_info=True)
+                self.status.update(0, 'Script Error')
                 pass
 
         # video, yay.
@@ -375,6 +393,7 @@ class Command(BaseCommand):
                 return
             except Exception as e:
                 logging.warning('Importer: ',exc_info=True)
+                self.status.update(0, 'Script Error')
                 pass
 
         # sidecar gets handled explicitly by exporter
@@ -382,6 +401,7 @@ class Command(BaseCommand):
             return
 
         self.import_other(sourcefullpath, sourcerelpath)
+        self.status.close()
 
 
     def handle(self, *args, **options):
@@ -394,7 +414,9 @@ class Command(BaseCommand):
         if len(args) == 0:
             for importfilename in sys.stdin:
                 self.do_import(importfilename.strip())
-            return
+        else:
+            for importfilename in args:
+                self.do_import(importfilename)
 
-        for importfilename in args:
-            self.do_import(importfilename)
+        if self.status:
+                self.status.close()

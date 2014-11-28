@@ -94,9 +94,9 @@ WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP 
 EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
 THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
 PREVIEW_DIR = 'preview/'
-STATUS_DIR = 'status/'
-IMPORT_STATUS = WEB_DIR+STATUS_DIR+'import.json'
-PROCESS_STATUS = WEB_DIR+STATUS_DIR+'process.json'
+STATUS_DIR = WEB_DIR+'status/'
+IMPORT_STATUS = 'import.json'
+PROCESS_STATUS = 'process.json'
 
 LOGFILE = MEDIA_DIR+'log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(message)s'
