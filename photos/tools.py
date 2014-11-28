@@ -1,8 +1,8 @@
 from django.conf import settings
 import os
+import logging
 from pwd import getpwnam
 from grp import getgrnam
-from sys import stderr
 
 class toolbox:
     @staticmethod
@@ -33,13 +33,13 @@ class toolbox:
             if os.path.isdir(path):
                 pass
             else:
-                stderr.write('Error: cannot create directory {}: {}'.format(path, e.message))
+                logging.error('Cannot create directory {}: {}'.format(path, e.message))
                 raise e
         try:
             os.chown(path, settings.WWWUSER, settings.WWWGROUP)
             os.chmod(path, 0755)
         except (KeyError, OSError) as e:
-            stderr.write('Warning: cannot change owner / group of {}: {}'.format(path, e.message))
+            logging.warning('Cannot change owner / group of {}: {}'.format(path, e.message))
 
     @staticmethod
     def is_in_path(filename):
@@ -67,6 +67,7 @@ class toolbox:
             return
         except OSError:
             # probably should try copying
+            logging.error('cannot link {} to {}: {}', source, dest)
             pass
 
     @staticmethod

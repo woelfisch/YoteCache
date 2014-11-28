@@ -8,11 +8,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.7/ref/settings/
 """
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
+import logging
 from photos.tools import toolbox
-BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.7/howto/deployment/checklist/
@@ -87,12 +88,24 @@ STATIC_URL = '/static/'
 WWWUSER = toolbox.www_user()
 WWWGROUP = toolbox.www_group()
 
-PHOTODIR = '/data/camera/'
-SOURCEDIR = PHOTODIR+'import/'  # contains dirs with imported images
-JPEGDIR = PHOTODIR+'jpeg/'      # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
-EXPORTDIR = PHOTODIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
-THUMBNAILDIR = 'tn/'    # JPEGDIR + subdir + THUMBNAILDIR + filename
-WEBIMAGEDIR = "web/"
+MEDIA_DIR = '/data/camera/'
+SOURCE_DIR = MEDIA_DIR+'import/'  # contains dirs with imported images
+WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
+EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
+THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
+PREVIEW_DIR = 'preview/'
+STATUS_DIR = 'status/'
+IMPORT_STATUS = WEB_DIR+STATUS_DIR+'import.json'
+PROCESS_STATUS = WEB_DIR+STATUS_DIR+'process.json'
+
+LOGFILE = MEDIA_DIR+'log.txt'
+LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(message)s'
+LOGGER_HANDLE = 'photoyote'
+if DEBUG:
+    LOGLEVEL = logging.DEBUG
+else:
+    LOGLEVEL = logging.WARNING
+
 
 THUMBNAILSIZE = '128x128>'
 WEBSIZE = '720x720>'
@@ -116,6 +129,7 @@ elif toolbox.is_in_path('ffmpeg'):
     FFMPEG_EXTRA=[]
 else:
     FFMPEG_COMMAND=None
+
 
 
 """

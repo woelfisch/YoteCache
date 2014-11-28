@@ -1,6 +1,6 @@
 import os
 import os.path
-from sys import stderr, stdout
+import logging
 from django.db import models
 from django.conf import settings
 from model_utils import FieldTracker
@@ -31,7 +31,7 @@ class Catalog(models.Model):
 
     def save(self, *args, **kwargs):
         super(Catalog, self).save(*args, **kwargs)
-        toolbox.mkdir(settings.EXPORTDIR+'/'+self.name)
+        toolbox.mkdir(self.get_path())
 
     def delete(self, *args, **kwargs):
         uncataloged, created=self.objects.get_or_create(name=settings.DEFAULT_CATALOG)
@@ -39,14 +39,14 @@ class Catalog(models.Model):
             mediafile.catalog=uncataloged
             mediafile.save()
         try:
-            os.rmdir(settings.EXPORTDIR+'/'+self.name)
+            os.rmdir(self.get_path())
         except Exception as e:
             pass
 
         super(Catalog, self).delete(*args, **kwargs)
 
     def get_path(self):
-        return settings.EXPORTDIR+self.name+'/'
+        return settings.EXPORT_DIR+self.name+'/'
 
 class MimeTypeManager(models.Manager):
     def get_by_natural_key(self, mime_type):
@@ -70,7 +70,7 @@ class MimeType(models.Model):
 
 class MediaFile(models.Model):
     mediafile_path = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Path to original file')
-    sidecar_path = models.CharField(max_length=settings.MAX_PATH, blank=True, help_text='Path to sidecar file')
+    sidecar_path = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text='Path to sidecar file')
     filename = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Filename for export')
     mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file')
 
@@ -90,22 +90,37 @@ class MediaFile(models.Model):
     def __str__(self):
         return self.filename
 
+    def __init__(self, *args, **kwargs):
+        # logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
+        super(MediaFile, self).__init__(*args, **kwargs)
+
     def save(self, *args, **kwargs):
+        destdir=self.catalog.get_path()
+        recreate_xmp = False
+
         if self.tracker.has_changed('catalog'):
             prev=self.tracker.previous('catalog')
             if prev:
                 oldcatalog=Catalog.objects.get(id=prev)
                 self.unlink_exports(oldcatalog)
-            self.link_exports()
-            self.create_xmp()
+            recreate_xmp=True
         elif self.tracker.has_changed('rejected'):
             if self.rejected:
                 self.unlink_exports(self.catalog)
             else:
+                recreate_xmp=True
+
+        if self.tracker.has_changed('rating') or self.tracker.has_changed('label'):
+            recreate_xmp=True
+
+        if not self.rejected:
+            if not os.path.isfile(destdir+self.filename):
+                recreate_xmp=True
                 self.link_exports()
+
+            if recreate_xmp:
                 self.create_xmp()
-        elif self.tracker.has_changed('rating') or self.tracker.has_changed('label'):
-            self.create_xmp()
+
         super(MediaFile, self).save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -115,10 +130,12 @@ class MediaFile(models.Model):
 
     def link_exports(self):
         destdir=self.catalog.get_path()
-        toolbox.link(settings.SOURCEDIR+self.mediafile_path, destdir+self.filename)
+        logging.info('destdir is {}'.format(destdir))
+        toolbox.mkdir(destdir)
+        toolbox.link(settings.SOURCE_DIR+self.mediafile_path, destdir+self.filename)
         sidecar=toolbox.get_sidecar_name(self.filename, self.sidecar_path)
         if sidecar:
-            toolbox.link(settings.SOURCEDIR+self.sidecar_path, destdir+sidecar)
+            toolbox.link(settings.SOURCE_DIR+self.sidecar_path, destdir+sidecar)
 
     def unlink_exports(self, catalog):
         try:
@@ -133,8 +150,14 @@ class MediaFile(models.Model):
 
     # granted, this is business logic and doesn't really belong here, but...
     def create_xmp(self):
+        if not self.sidecar_path:
+            return
+
+        if not self.mime_type.type.split('/')[0] in ('image', 'video'):
+            return
+
         exif=GExiv2.Metadata()
-        exif.open_path(settings.SOURCEDIR+self.sidecar_path)
+        exif.open_path(settings.SOURCE_DIR+self.sidecar_path)
         sidecar_label=exif.get_tag_interpreted_string('Xmp.xmp.Label')
         sidecar_rating=exif.get_tag_long('Xmp.xmp.Label')
 
@@ -147,7 +170,7 @@ class MediaFile(models.Model):
                 pass
 
             if (not self.rating or self.rating == sidecar_rating) and (not self.label or self.label == sidecar_label):
-                os.link(settings.SOURCEDIR+self.sidecar_path, xmpfile)
+                os.link(settings.SOURCE_DIR+self.sidecar_path, xmpfile)
                 return
 
         try:
@@ -155,7 +178,7 @@ class MediaFile(models.Model):
             fd.write('<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"></x:xmpmeta>')
             fd.close()
         except IOError as e:
-            sys.stderr.write('Error: Cannot create {}: {}'.format(xmpfile, e.message))
+            logging.error('Cannot create {}: {}'.format(xmpfile, e.message))
             return
 
         exif.register_xmp_namespace('http://ns.adobe.com/xap/1.0/', 'xmp')

@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import os.path
+import logging
 
 from subprocess import call
 from dateutil import tz
@@ -37,14 +38,15 @@ class Command(BaseCommand):
 
 
     def create_proxy(self, source, dest, mode):
-        self.stdout.write('Status: create_proxy called for {}, {}, {}'.format(source, dest, mode))
+        logging.info('called for {}, {}, {}'.format(source, dest, mode))
         if os.path.isfile(dest) and not self.force:
             return
 
         # just link fullsize image if JPEG and orientation is normal
         is_jpeg = os.path.splitext(source)[1].lower() in ('.jpg', '.jpeg')
         orientation = self.exif.get_orientation()
-        # self.stdout.write('Debug: Orientation: {}'.format(orientation.value_nick))
+        logging.debug('EXIF Orientation: {}'.format(orientation.value_nick))
+
         if mode == self.PROXY_FULLSIZE and is_jpeg and orientation == orientation.NORMAL:
             try:
                 os.unlink(dest)
@@ -54,7 +56,7 @@ class Command(BaseCommand):
             try:
                 os.link(source, dest)
             except Exception as e:
-                self.stderr.write('Error: cannot link {} to {}: {}'.format(source, dest, e.message))
+                logging.error('cannot link {} to {}: {}'.format(source, dest, e.message))
                 raise e
 
             return
@@ -64,7 +66,7 @@ class Command(BaseCommand):
             try:
                 self.image = Image(filename=source)
             except Exception as e:
-                self.stderr.write('Error: cannot read {}: {}'.format(source, e.message))
+                logging.error('cannot read {}: {}'.format(source, e.message))
                 raise e
 
         # copy bitmap, we may need it again
@@ -84,13 +86,13 @@ class Command(BaseCommand):
             image.strip()
             image.save(filename=dest)
         except (Exception, IOError) as e:
-            self.stderr.write('Error: cannot write {}: {}'.format(dest, e.message))
+            logging.error('Error: cannot write {}: {}'.format(dest, e.message))
             raise e
 
         return
 
     def create_video_proxy(self, source, dest, mode):
-        self.stdout.write('Status: create_video_proxy called for {}, {}, {}'.format(source, dest, mode))
+        logging.info('called for {}, {}, {}'.format(source, dest, mode))
         if os.path.isfile(dest) and not self.force:
             return
 
@@ -119,15 +121,19 @@ class Command(BaseCommand):
             fd.close()
             self.exif.save_file(destxmppath)
         except Exception as e:
-            self.stderr.write('Error: cannot write {}: {}'.format(destxmppath, e))
+            logging.error('cannot write {}: {}'.format(destxmppath, e))
 
         return destxmppath
 
-    def get_timestamp(self, sourcefullpath):
+    def get_timestamp(self, sourcefullpath, use_exif=True):
         # first try to get it from EXIF data
-        timestamp=self.exif.get_tag_string('Exif.Photo.DateTimeOriginal')
-        if not timestamp:
-            timestamp=self.exif.get_tag_string('Exif.Image.DateTime')
+        if use_exif:
+            timestamp=self.exif.get_tag_string('Exif.Photo.DateTimeOriginal')
+            if not timestamp:
+                timestamp=self.exif.get_tag_string('Exif.Image.DateTime')
+        else:
+            timestamp=None
+
         # try timestamp of file
         if not timestamp:
             st=os.stat(sourcefullpath)
@@ -153,7 +159,7 @@ class Command(BaseCommand):
             count+=1
 
         if count == 1000000:
-            self.stderr.write('Error: Cannot create unique export filename')
+            logging.error('Cannot create unique export filename')
             return None
 
         return filename
@@ -182,14 +188,14 @@ class Command(BaseCommand):
         except Exception as e:
             entry.focal_length=0
 
-    def update_db(self, sourcefullpath, sourcerelpath, sidecar):
+    def update_db(self, sourcefullpath, sourcerelpath, sidecar=None, is_supported_media=True):
         entry=None
         try:
             entry=MediaFile.objects.get(mediafile_path=sourcerelpath)
             if not self.force:
                 return entry
         except MediaFile.DoesNotExist:
-            timestamp=self.get_timestamp(sourcefullpath)
+            timestamp=self.get_timestamp(sourcefullpath, use_exif=is_supported_media)
             filename=self.create_filename(sourcefullpath, timestamp)
             if not filename:
                 return
@@ -199,9 +205,8 @@ class Command(BaseCommand):
 
             try:
                 entry=MediaFile(mediafile_path=sourcerelpath)
-
             except Exception as e:
-                self.stderr.write('Error: Cannot get object: {}'.format(e.message))
+                logging.error('Cannot get object: {}'.format(e.message))
                 raise e
 
             entry.mime_type=mime_type
@@ -209,19 +214,21 @@ class Command(BaseCommand):
             entry.filename=filename
             entry.date=tz.time.strftime('%Y-%m-%dT%H:%M:%SZ', timestamp)
 
-            rating=self.exif.get_tag_long('Xmp.xmp.Rating')
-            if rating:
-                entry.rating=rating
-            label=self.exif.get_tag_string('Xmp.xmp.Label')
-            if label:
-                entry.label=label
+            if is_supported_media:
+                rating=self.exif.get_tag_long('Xmp.xmp.Rating')
+                if rating:
+                    entry.rating=rating
+                label=self.exif.get_tag_string('Xmp.xmp.Label')
+                if label:
+                    entry.label=label
 
-            entry.sidecar_path=sidecar
+                entry.sidecar_path=sidecar
 
-        self.update_image_parameters(entry)
+        if is_supported_media:
+            self.update_image_parameters(entry)
         return entry
 
-    def import_image(self, sourcefullpath):
+    def import_image(self, sourcefullpath, sourcerelpath):
         self.image = None
         # prefer XMP "sidecar" files to save us from parsing huge RAW files more than necessary
         sourcexmppath = os.path.splitext(sourcefullpath)[0]
@@ -240,21 +247,20 @@ class Command(BaseCommand):
         if not havesourcesidecar:
             self.exif.open_path(sourcefullpath)
 
-        sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCEDIR)
-        (jpegreldir, jpegname) = os.path.split(sourcerelpath)
-        jpegname = os.path.splitext(jpegname)[0] + ".jpg"
+        (mediareldir, jpegfilename) = os.path.split(sourcerelpath)
+        jpegfilename = os.path.splitext(jpegfilename)[0] + ".jpg"
 
         try:
-            jpegdir = settings.JPEGDIR + jpegreldir
-            jpegfullpath = jpegdir+'/'+jpegname
-            toolbox.mkdir(jpegdir)
+            mediadir = settings.WEB_DIR + mediareldir
+            jpegfullpath = mediadir+'/'+jpegfilename
+            toolbox.mkdir(mediadir)
             self.create_proxy(sourcefullpath, jpegfullpath, self.PROXY_FULLSIZE)
         except Exception as e:
             raise e
 
         try:
-            tndir = jpegdir + "/" + settings.THUMBNAILDIR
-            tnfullpath = tndir+'/'+jpegname
+            tndir = mediadir + "/" + settings.THUMBNAIL_DIR
+            tnfullpath = tndir+'/'+jpegfilename
             toolbox.mkdir(tndir)
             self.create_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
@@ -262,8 +268,8 @@ class Command(BaseCommand):
             raise e
 
         try:
-            webimgdir = jpegdir + "/" + settings.WEBIMAGEDIR
-            webimgfullpath = webimgdir+'/'+jpegname
+            webimgdir = mediadir + "/" + settings.PREVIEW_DIR
+            webimgfullpath = webimgdir+'/'+jpegfilename
             toolbox.mkdir(webimgdir)
             self.create_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
@@ -276,17 +282,17 @@ class Command(BaseCommand):
         # a source file. A sidecar file is required for import of the rating and label tags
         # with lightroom, though.
         #
-        # ATTN: We'll write it to SOURCEDIR. The web app should never touch the proxy dirs
+        # ATTN: We'll write it to SOURCE_DIR. The web app should never touch the proxy dirs
         # by itself
 
         if not havesourcesidecar:
             sourcexmppath=self.write_xmp_sidecar(sourcefullpath)
 
-        xmprelpath = os.path.relpath(sourcexmppath, settings.SOURCEDIR)
+        xmprelpath = os.path.relpath(sourcexmppath, settings.SOURCE_DIR)
         entry=self.update_db(sourcefullpath, sourcerelpath, xmprelpath)
         entry.save()
 
-    def import_video(self, sourcefullpath):
+    def import_video(self, sourcefullpath, sourcerelpath):
         if not settings.FFMPEG_COMMAND:
             raise NotImplementedError
 
@@ -302,13 +308,12 @@ class Command(BaseCommand):
 
                 break
 
-        sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCEDIR)
-        (jpegreldir, gifname) = os.path.split(sourcerelpath)
-        jpegdir = settings.JPEGDIR + jpegreldir
+        (mediareldir, gifname) = os.path.split(sourcerelpath)
+        mediadir = settings.WEB_DIR + mediareldir
         gifname = os.path.splitext(gifname)[0] + ".gif"
 
         try:
-            tndir = jpegdir + "/" + settings.THUMBNAILDIR
+            tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir+'/'+gifname
             toolbox.mkdir(tndir)
             self.create_video_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
@@ -316,7 +321,7 @@ class Command(BaseCommand):
             raise e
 
         try:
-            webimgdir = jpegdir + "/" + settings.WEBIMAGEDIR
+            webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir+'/'+gifname
             toolbox.mkdir(webimgdir)
             self.create_video_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
@@ -327,24 +332,29 @@ class Command(BaseCommand):
         if not havesourcesidecar:
             sourcesidecarpath=self.write_xmp_sidecar(sourcefullpath)
             self.exif.open_path(sourcesidecarpath)
-            sidecarrelpath = os.path.relpath(sourcesidecarpath, settings.SOURCEDIR)
+            sidecarrelpath = os.path.relpath(sourcesidecarpath, settings.SOURCE_DIR)
         else:
-            sidecarrelpath = os.path.relpath(sourcethmpath, settings.SOURCEDIR)
+            sidecarrelpath = os.path.relpath(sourcethmpath, settings.SOURCE_DIR)
 
         entry = self.update_db(sourcefullpath, sourcerelpath, sidecarrelpath)
         entry.save()
 
-
+    def import_other(self, sourcefullpath, sourcerelpath):
+        entry = self.update_db(sourcefullpath, sourcerelpath, is_supported_media=False)
+        if entry.mime_type.copy:
+            entry.save()
 
     def do_import(self, sourcefullpath):
         sourcefullpath = os.path.abspath(sourcefullpath)
-        if not sourcefullpath.startswith(settings.SOURCEDIR):
-            self.stderr.write('Error: {} is not below directory {}'.format(sourcefullpath, settings.SOURCEDIR))
+        if not sourcefullpath.startswith(settings.SOURCE_DIR):
+            logging.critical('{} is not below directory {}'.format(sourcefullpath, settings.SOURCE_DIR))
             return
 
         if not os.path.isfile(sourcefullpath):
-            self.stderr.write('Error: {} is does not exist or is not a file'.format(sourcefullpath))
+            logging.critical('{} does not exist or is not a file'.format(sourcefullpath))
             return
+
+        sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCE_DIR)
 
         self.mimetype=magic.from_file(filename=sourcefullpath, mime=True)
         extension=os.path.splitext(sourcefullpath)[1].lower()
@@ -352,28 +362,33 @@ class Command(BaseCommand):
         # image, but skip video thumbnail (handled by do_import_video and exporter)
         if self.mimetype.startswith('image/') and extension != '.thm':
             try:
-                self.import_image(sourcefullpath)
+                self.import_image(sourcefullpath, sourcerelpath)
                 return
             except Exception as e:
-                self.stderr.write('Error: {} in line {}'.format(e.message, sys.exc_info()[-1].tb_lineno))
+                logging.warning('Importer: ',exc_info=True)
                 pass
 
         # video, yay.
         if self.mimetype.startswith('video/'):
             try:
-                self.import_video(sourcefullpath)
+                self.import_video(sourcefullpath, sourcerelpath)
                 return
             except Exception as e:
-                self.stderr.write('Error: {} in line {}'.format(e.message, sys.exc_info()[-1].tb_lineno))
+                logging.warning('Importer: ',exc_info=True)
                 pass
 
         # sidecar gets handled explicitly by exporter
         if extension == '.xmp':
             return
 
+        self.import_other(sourcefullpath, sourcerelpath)
+
 
     def handle(self, *args, **options):
+        logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
         self.force = options['force_mode']
+
+        toolbox.mkdir(settings.EXPORT_DIR)
 
         # if args is empty: read filenames from stdin instead
         if len(args) == 0:
