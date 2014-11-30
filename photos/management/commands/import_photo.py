@@ -1,5 +1,4 @@
 from optparse import make_option
-import re
 import sys
 import os
 import os.path
@@ -13,7 +12,8 @@ from wand.image import Image  # Wand
 from gi.repository import GExiv2  # libgexiv2-2, typelib-1_0-GExiv2-0_4, python-gobject2
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from photos.tools import toolbox, StatusWriter
+from photos.tools import toolbox
+from photos.statuswriter import StatusWriter
 from photos.models import MimeType, Catalog, MediaFile
 
 class Command(BaseCommand):

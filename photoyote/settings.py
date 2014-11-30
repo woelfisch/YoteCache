@@ -112,6 +112,7 @@ WEBSIZE = '720x720>'
 
 DEFAULT_CATALOG='uncataloged'
 UNKNOWN_MIME_TYPE='application/octet-stream'
+METADATA_EXTENSIONS = ('.thn', '.xmp')
 
 MAX_PATH = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
 
