@@ -25,6 +25,10 @@ class Command(BaseCommand):
                     dest='card_device',
                     default=os.getenv('UM_DEVICE'),
                     help='Device node of media card'),
+        make_option('-p', '--ptp',
+                    dest='ptp_mode',
+                    default=False,
+                    help='Use PTP mode'),
     )
 
     # source stuff
@@ -108,23 +112,34 @@ class Command(BaseCommand):
 
     def get_file_list(self):
         filelist = {}
+        filenumber = 0
+
         for root, dirs, files in os.walk(self.dcim_directory):
             root_basename=os.path.basename(root)
             if root_basename[:3].isdigit():
+                filenumber+=len(files)
                 for f in files:
                     name, ext = os.path.splitext(root + '/' + f)
                     if name not in filelist:
                         filelist[name] = [ext]
                     else:
                         filelist[name].append(ext)
+
+        status.total_items = filenumber
+        logging.debug('get_file_list(): found {} files to copy'.format(filenumber))
         return filelist
 
     def copy_file(self, name):
+        self.status.update_filecopy(name)
+
         # needs to print path of imported file to console to pipe into import_photo
         destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_directory)
 
         if self.check_if_same_file(name, destpath):
+            logging.debug('Files {} and {} are the same'.format(name, destpath))
             return
+
+        logging.info('Copying file {}'.format(name))
 
         destpath=self.mk_unique_name(destpath)
         destdir=os.path.dirname(destpath)
@@ -133,7 +148,7 @@ class Command(BaseCommand):
         try:
             check_call(['/bin/cp', '-p', name, destpath])
         except:
-            # log error, write status, but pass
+            logging.error('copy_file: ', exc_info=True)
             pass
 
         print destpath
@@ -143,6 +158,10 @@ class Command(BaseCommand):
         Copies metadata before actual content for import_photo to have it available
         :return:None
         '''
+
+        self.status=StatusWriter(statusfilename=settings.IMPORT_STATUS,
+                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
+                                 text='Start')
 
         filelist = self.get_file_list()
         basenames = filelist.keys()
@@ -159,8 +178,11 @@ class Command(BaseCommand):
             for e in remaining:
                 self.copy_file(name + e)
 
+        self.status.close()
+
 
     def handle(self, *args, **options):
+        logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
         self.card_directory = options['card_directory']
         self.card_device = options['card_device']
 
@@ -170,11 +192,12 @@ class Command(BaseCommand):
             raise CommandError('Missing device node parameter')
 
         self.dcim_directory=self.card_directory+'/DCIM'
+        self.status=StatusWriter(settings.IMPORT_STATUS, )
 
         try:
             self.importbase=settings.SOURCE_DIR+self.get_card_info()
         except:
-            # log error about inaccessible card
+            logging.error('Copy_Card: ', exc_info=True)
             return
 
         self.copy()

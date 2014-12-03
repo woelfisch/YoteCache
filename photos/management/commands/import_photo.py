@@ -358,7 +358,7 @@ class Command(BaseCommand):
         self.status.update(100, 'Done')
 
     def do_import(self, sourcefullpath):
-        self.status=StatusWriter(settings.IMPORT_STATUS, sourcefullpath, 'Start')
+        self.status=StatusWriter(statusfilename=settings.IMPORT_STATUS, filename=sourcefullpath, text='Start')
         sourcefullpath = os.path.abspath(sourcefullpath)
         if not sourcefullpath.startswith(settings.SOURCE_DIR):
             logging.critical('{} is not below directory {}'.format(sourcefullpath, settings.SOURCE_DIR))
