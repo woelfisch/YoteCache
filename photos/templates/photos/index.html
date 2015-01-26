@@ -1,0 +1,19 @@
+{% load photoyotetags %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+
+{% for catalog, media_list in all_media_list %}
+<h2>{{catalog}}</h2>
+{% for media in media_list %}
+<a href="{{media.id}}/"><img src="{{media|thumbnail}}" /></a>
+{% endfor %}
+{% endfor %}
+
+</body>
+</html>
