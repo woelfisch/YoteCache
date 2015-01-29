@@ -1,12 +1,126 @@
 <!DOCTYPE html>
+{% load photoyotetags %}
+{% load static %}
 <html>
 <head lang="en">
     <meta charset="UTF-8">
     <title></title>
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'jquery/jquery.mobile-1.4.5.min.css' %}" rel="stylesheet">
+    <script src="{% static 'jquery/jquery-2.1.3.min.js' %}"></script>
+    <script src="{% static 'jquery/jquery.mobile-1.4.5.min.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
 </head>
 <body>
-{{image.filename}}
-{{image.mime_type}}
-{{image.date}}
+<style>
+    .col-xs-6 {
+        padding: 2px;
+    }
+    .col-xs-6 a {
+        margin-bottom: 0;
+    }
+</style>
+<script>
+    var media_list=[
+    {% for media in filmstrip %}    {
+            id: "{{media.id}}",
+            filename: "{{media.filename}}",
+            date: "{{media.date|date:'Y-m-d H:i'}}",
+            thumbnail: "{{media|thumbnail}}",
+            preview: "{{media|preview}}",
+            fullsize: "{{media|fullsize}}"
+        },
+    {% endfor %}];
+
+    function get_index_by_id(id) {
+        for (idx=0; idx < media_list.length; idx++) {
+            if (media_list[idx].id == id) return idx;
+        }
+        return 0;
+    }
+
+    function verify_index(idx) {
+        if (idx < 0) return 0;
+        if (idx >=  media_list.length) return media_list.length-1;
+        return idx;
+    }
+
+    function set_preview_image() {
+        var next_media=verify_index(cur_media+1);
+        $("#media-next").prop('disabled', next_media == cur_media);
+
+        var prev_media=verify_index(cur_media-1);
+        $("#media-prev").prop('disabled', prev_media == cur_media);
+
+        $("#img-preview").attr("src", media_list[cur_media].preview);
+        $("#img-preview-next").attr("src", media_list[next_media].preview);
+        $("#img-preview-prev").attr("src", media_list[prev_media].preview);
+        window.location.hash=media_list[cur_media].id;
+    }
+
+    function previous_image() {
+        cur_media = verify_index(cur_media-1);
+        set_preview_image();
+    }
+
+    function next_image() {
+        cur_media = verify_index(cur_media+1);
+        set_preview_image();
+    }
+
+    function setup_filmstrip() {
+        for (idx=0; idx < media_list.length; idx++) {
+            media=media_list[idx];
+            $('#slide-'+media.id).on("click", {idx: idx}, function(ev) {
+                cur_media = ev.data.idx;
+                set_preview_image();
+            });
+        }
+    }
+
+    var media_id=window.location.hash.substring(1);
+    var cur_media = get_index_by_id(media_id);
+
+    $(document).ready(function(){
+        // alert(media_list[cur_media].filename);
+        set_preview_image();
+        setup_filmstrip();
+        $("#img-preview").on("dragstart", function() { return false; });
+
+        $("#media-prev").on("click", previous_image);
+        $("div.preview").on("swiperight", previous_image);
+        $("#media-next").on("click", next_image);
+        $("div.preview").on("swipeleft", next_image);
+    });
+</script>
+<div class="preview">
+    <div class="preview-with-nav">
+        <button id="media-prev" type="button" class="btn btn-default btn-lg">
+            <span class="glyphicon glyphicon-menu-left" aria-hidden="true"></span>
+        </button>
+        <div class="img-preview-container" style="height: 480px"><img id="img-preview" /></div>
+        <button id="media-next" type="button" class="btn btn-default btn-lg">
+            <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
+        </button>
+    </div>
+</div>
+<div class="filmstrip">
+    <div class="row">
+        {% for media in filmstrip %}
+        <div class="col-xs-6 col-md-2" id="slide-{{media.id}}">
+            <div class="thumbnail">
+                <img src="{{media|thumbnail}}" />
+                <div class="caption">
+                    <h5>{{media.filename}}</h5>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
 </body>
+<div style="display: none">
+    <img id="img-preview-prev" />
+    <img id="img-preview-next" />
+</div>
 </html>
