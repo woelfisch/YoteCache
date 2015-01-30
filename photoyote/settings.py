@@ -78,8 +78,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
@@ -97,6 +95,15 @@ PREVIEW_DIR = 'preview/'
 STATUS_DIR = WEB_DIR+'status/'
 IMPORT_STATUS = 'import.json'
 PROCESS_STATUS = 'process.json'
+
+THUMBNAIL_UNAVAILABLE = 'thumbnail_unavailable.jpg'
+PREVIEW_UNAVAILABLE = 'preview_unavailable.jpg'
+FULLSIZE_UNAVAILABLE = 'fullsize_unavailable.jpg'
+
+if DEBUG:
+    STATICFILES_DIRS = (
+        WEB_DIR,
+    )
 
 LOGFILE = MEDIA_DIR+'log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(message)s'

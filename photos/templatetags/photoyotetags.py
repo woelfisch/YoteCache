@@ -29,3 +29,27 @@ def thumbnail(media_file):
         return settings.STATIC_URL+settings.THUMBNAIL_UNAVAILABLE
 
     return settings.STATIC_URL+basename
+
+@register.filter(name='preview')
+def preview(media_file):
+    proxy=proxyfile(media_file)
+    if not proxy:
+        return settings.STATIC_URL+settings.PREVIEW_UNAVAILABLE
+
+    (dir, name) = os.path.split(proxy)
+    basename=dir+'/'+settings.PREVIEW_DIR+name
+    if not os.path.exists(settings.WEB_DIR+basename):
+        return settings.STATIC_URL+settings.PREVIEW_UNAVAILABLE
+
+    return settings.STATIC_URL+basename
+
+@register.filter(name='fullsize')
+def fullsize(media_file):
+    proxy=proxyfile(media_file)
+    if not proxy:
+        return settings.STATIC_URL+settings.FULLSIZE_UNAVAILABLE
+
+    if not os.path.exists(settings.WEB_DIR+proxy):
+        return settings.STATIC_URL+settings.FULLSIZE_UNAVAILABLE
+
+    return settings.STATIC_URL+proxy

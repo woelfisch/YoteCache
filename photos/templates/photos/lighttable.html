@@ -39,6 +39,10 @@
         return 0;
     }
 
+    function slide_id(idx) {
+        return '#slide-'+media_list[idx].id;
+    }
+
     function verify_index(idx) {
         if (idx < 0) return 0;
         if (idx >=  media_list.length) return media_list.length-1;
@@ -56,6 +60,7 @@
         $("#img-preview-next").attr("src", media_list[next_media].preview);
         $("#img-preview-prev").attr("src", media_list[prev_media].preview);
         window.location.hash=media_list[cur_media].id;
+        set_filmstrip_slide(cur_media);
     }
 
     function previous_image() {
@@ -66,6 +71,46 @@
     function next_image() {
         cur_media = verify_index(cur_media+1);
         set_preview_image();
+    }
+
+    var cur_highlight=0;
+    var strip_first=0;
+
+    function set_filmstrip_slide(highlight) {
+        var last=highlight+3;
+        if (last >= media_list.length) last=media_list.length-1;
+        var first=last-5;
+        if (first < 0) {
+            first=0;
+            last=5;
+        }
+        for (idx = 0; idx < first; idx++)
+            $(slide_id(idx)).hide();
+        for (idx = last; idx < media_list.length; idx++)
+            $(slide_id(idx)).hide();
+        for (idx = first; idx <= last; idx++)
+            $(slide_id(idx)).show();
+
+        $(slide_id(cur_highlight)).css('border-style', 'none');
+        $(slide_id(highlight)).css('border-style', 'solid');
+        cur_highlight=highlight;
+        strip_first=first;
+    }
+
+    function slide_strip_left() {
+        if (strip_first >= media_list.length-6) return false;
+        $(slide_id(strip_first)).hide();
+        $(slide_id(strip_first+6)).show();
+        strip_first++;
+        return false;
+    }
+
+    function slide_strip_right() {
+        if (strip_first == 0) return false;
+        strip_first--;
+        $(slide_id(strip_first+6)).hide();
+        $(slide_id(strip_first)).show();
+        return false;
     }
 
     function setup_filmstrip() {
@@ -82,7 +127,6 @@
     var cur_media = get_index_by_id(media_id);
 
     $(document).ready(function(){
-        // alert(media_list[cur_media].filename);
         set_preview_image();
         setup_filmstrip();
         $("#img-preview").on("dragstart", function() { return false; });
@@ -91,6 +135,9 @@
         $("div.preview").on("swiperight", previous_image);
         $("#media-next").on("click", next_image);
         $("div.preview").on("swipeleft", next_image);
+
+        $("div.filmstrip").on("swipeleft", slide_strip_left);
+        $("div.filmstrip").on("swiperight", slide_strip_right);
     });
 </script>
 <div class="preview">
@@ -107,11 +154,11 @@
 <div class="filmstrip">
     <div class="row">
         {% for media in filmstrip %}
-        <div class="col-xs-6 col-md-2" id="slide-{{media.id}}">
+        <div class="col-xs-6 col-md-2" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail">
                 <img src="{{media|thumbnail}}" />
                 <div class="caption">
-                    <h5>{{media.filename}}</h5>
+                    <h5>{{media.date|date:'Y-m-d H:i'}}</h5>
                 </div>
             </div>
         </div>

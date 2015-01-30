@@ -14,5 +14,7 @@ def index(request):
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
 
 
-def lighttable(request, image_id):
-    return render(request, 'photos/lighttable.html', {'image': MediaFile.objects.get(id=image_id)})
+def lighttable(request, catalog_id):
+    return render(request, 'photos/lighttable.html', {
+        'catalog': Catalog.objects.get(id=catalog_id),
+        'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
