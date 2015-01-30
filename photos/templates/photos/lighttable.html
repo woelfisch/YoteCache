@@ -98,25 +98,50 @@
     }
 
     function slide_strip_left() {
-        if (strip_first >= media_list.length-6) return false;
+        if (strip_first >= media_list.length-6) return;
         $(slide_id(strip_first)).hide();
         $(slide_id(strip_first+6)).show();
         strip_first++;
-        return false;
     }
 
     function slide_strip_right() {
-        if (strip_first == 0) return false;
+        if (strip_first == 0) return;
         strip_first--;
         $(slide_id(strip_first+6)).hide();
         $(slide_id(strip_first)).show();
-        return false;
+    }
+
+    var slide_scroll_mouse_pos;
+    function slide_scroll(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        var delta = ev.pageX - slide_scroll_mouse_pos;
+        if (Math.abs(delta) < 40) return;
+
+        if (delta > 0)
+            slide_strip_right();
+        else
+            slide_strip_left();
+
+        slide_scroll_mouse_pos = ev.pageX;
+    }
+
+    function slide_start_scroll(ev) {
+        slide_scroll_mouse_pos = ev.pageX;
+        $(this).on("mousemove", slide_scroll);
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+
+    function slide_stop_scroll(ev) {
+        $(this).off("mousemove");
     }
 
     function setup_filmstrip() {
         for (idx=0; idx < media_list.length; idx++) {
             media=media_list[idx];
-            $('#slide-'+media.id).on("click", {idx: idx}, function(ev) {
+            $('#slide-'+media.id+' > div > img').on("click", {idx: idx}, function(ev) {
                 cur_media = ev.data.idx;
                 set_preview_image();
             });
@@ -136,13 +161,13 @@
         $("#media-next").on("click", next_image);
         $("div.preview").on("swipeleft", next_image);
 
-        $("div.filmstrip").on("swipeleft", slide_strip_left);
-        $("div.filmstrip").on("swiperight", slide_strip_right);
+        $("div.filmstrip").on("mousedown", slide_start_scroll);
+        $("div.filmstrip").on("mouseup mouseleave", slide_stop_scroll);
     });
 </script>
 <div class="preview">
     <div class="preview-with-nav">
-        <button id="media-prev" type="button" class="btn btn-default btn-lg">
+        <button id="media-prev" type="button" class="btn btn-default btn-md">
             <span class="glyphicon glyphicon-menu-left" aria-hidden="true"></span>
         </button>
         <div class="img-preview-container" style="height: 480px"><img id="img-preview" /></div>
