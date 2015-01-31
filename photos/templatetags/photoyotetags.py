@@ -53,3 +53,7 @@ def fullsize(media_file):
         return settings.STATIC_URL+settings.FULLSIZE_UNAVAILABLE
 
     return settings.STATIC_URL+proxy
+
+@register.filter(name='basename')
+def basename(media_file):
+    return os.path.split(media_file)[1];

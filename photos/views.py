@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from photos.models import Catalog, MediaFile
+from django.core import serializers
 
 # Create your views here.
 def index(request):
@@ -18,3 +19,9 @@ def lighttable(request, catalog_id):
     return render(request, 'photos/lighttable.html', {
         'catalog': Catalog.objects.get(id=catalog_id),
         'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
+
+def metadata(request, media_id):
+    media = MediaFile.objects.filter(id=media_id)
+    json = serializers.serialize('json', media, use_natural_foreign_keys=True)
+    print json
+    return HttpResponse(content=json, content_type='application/json')

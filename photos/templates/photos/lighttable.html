@@ -60,7 +60,72 @@
         $("#img-preview-next").attr("src", media_list[next_media].preview);
         $("#img-preview-prev").attr("src", media_list[prev_media].preview);
         window.location.hash=media_list[cur_media].id;
+        get_image_metadata();
         set_filmstrip_slide(cur_media);
+    }
+
+    function exposure(tval) {
+        if (tval < 1)
+            return "1/"+(1/tval).toFixed(0);
+        return tval.toFixed(0);
+    }
+
+    function rating_stars_1(element, rating) {
+        stars=$(element+" > .glyphicon");
+        for (r=0; r < 5; r++) {
+            if (r < rating) {
+                $(stars[r]).removeClass("glyphicon-star-empty");
+                $(stars[r]).addClass("glyphicon-star");
+            } else {
+                $(stars[r]).removeClass("glyphicon-star");
+                $(stars[r]).addClass("glyphicon-star-empty");
+            }
+        }
+    }
+
+    function rating_stars_2(element, rating) {
+        stars=$(element+" > .glyphicon");
+        console.log(stars);
+        for (r=0; r < 5; r++) {
+            // $(stars[r]).removeClass("glyphicon-star-empty");
+            if (r < rating) {
+                $(stars[r]).addClass("glyphicon-star");
+            } else {
+                $(stars[r]).removeClass("glyphicon-star");
+            }
+        }
+    }
+
+    function update_image_metadata(data, id) {
+        $("#media-file").html(data.mediafile_path.split('/').pop());
+        $("#media-date").html(data.date);
+        $("#media-mime-type").html(data.mime_type);
+        $("#media-catalog").html(data.catalog);
+        $("#media-label").html(data.label);
+        rating_stars_1("#media-rating", data.rating);
+        $("#media-rejected").html(data.rejected? "True":"False");
+        $("#media-exposure").html(exposure(data.exposure_time));
+        $("#media-f-number").html(data.f_number);
+        $("#media-focal-length").html(data.focal_length);
+        $("#media-gain").html(data.gain_value);
+
+        rating_stars_2(".stars-"+id, data.rating);
+    }
+
+    function get_image_metadata() {
+        $.ajax({
+            url: "{% url 'metadata' %}"+media_list[cur_media].id,
+            type: "GET",
+            dataType: "json",
+            success: function(json) {
+                update_image_metadata(json[0].fields, json[0].pk);
+            },
+            error: function(xhr, status, errorThrown) {
+                console.log("Error: "+errorThrown);
+                console.log("Status: "+status);
+                console.dir( xhr);
+            }
+        });
     }
 
     function previous_image() {
@@ -175,6 +240,26 @@
             <span class="glyphicon glyphicon-menu-right" aria-hidden="true"></span>
         </button>
     </div>
+    <div class="media-meta-data">
+        <div>File: <span id="media-file"></span></div>
+        <div>Date: <span id="media-date"></span></div>
+        <div>Type: <span id="media-mime-type"></span></div>
+        <div>Catalog: <span id="media-catalog"></span></div>
+        <div>Label: <span id="media-label"></span></div>
+        <div></div>Rating: <span id="media-rating">
+            <span class="glyphicon glyphicon-star-empty"></span>
+            <span class="glyphicon glyphicon-star-empty"></span>
+            <span class="glyphicon glyphicon-star-empty"></span>
+            <span class="glyphicon glyphicon-star-empty"></span>
+            <span class="glyphicon glyphicon-star-empty"></span>
+        </span></div>
+        <div>Rejected: <span id="media-rejected"></span></div>
+
+        <div>Exposure: <span id="media-exposure"></span></div>
+        <div>F Number: <span id="media-f-number"></span></div>
+        <div>Focal Length: <span id="media-focal-length"></span></div>
+        <div>ISO/Gain: <span id="media-gain"></span></div>
+    </div>
 </div>
 <div class="filmstrip">
     <div class="row">
@@ -183,7 +268,15 @@
             <div class="thumbnail">
                 <img src="{{media|thumbnail}}" />
                 <div class="caption">
-                    <h5>{{media.date|date:'Y-m-d H:i'}}</h5>
+                    <h5>{{media.mediafile_path|basename}}</h5>
+                    <div>{{media.date|date:'Y-m-d H:i'}}</div>
+                    <span class="stars-{{media.id}}">
+                        <span class="glyphicon {% if media.rating > 0 %}glyphicon-star{% endif %}"></span>
+                        <span class="glyphicon {% if media.rating > 1 %}glyphicon-star{% endif %}"></span>
+                        <span class="glyphicon {% if media.rating > 2 %}glyphicon-star{% endif %}"></span>
+                        <span class="glyphicon {% if media.rating > 3 %}glyphicon-star{% endif %}"></span>
+                        <span class="glyphicon {% if media.rating > 4 %}glyphicon-star{% endif %}"></span>
+                    </span>
                 </div>
             </div>
         </div>

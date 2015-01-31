@@ -29,6 +29,9 @@ class Catalog(models.Model):
     def __str__(self):
         return self.name
 
+    def natural_key(self):
+        return self.name
+
     def save(self, *args, **kwargs):
         super(Catalog, self).save(*args, **kwargs)
         toolbox.mkdir(self.get_path())
@@ -60,6 +63,9 @@ class MimeType(models.Model):
     objects = MimeTypeManager()
 
     def __str__(self):
+        return self.type
+
+    def natural_key(self):
         return self.type
 
     def delete(self, *args, **kwargs):
