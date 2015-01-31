@@ -96,7 +96,6 @@
 
     function rating_stars_2(element, rating) {
         stars=$(element+" > .glyphicon");
-        console.log(stars);
         for (r=0; r < 5; r++) {
             // $(stars[r]).removeClass("glyphicon-star-empty");
             if (r < rating) {
@@ -107,20 +106,58 @@
         }
     }
 
+    function show_reject_main(rejected) {
+        if (rejected) {
+            $("#media-rejected-true").css("display", "inline");
+            $("#media-rejected-false").css("display", "none");
+        } else {
+            $("#media-rejected-false").css("display", "inline");
+            $("#media-rejected-true").css("display", "none");
+        }
+    }
+
+    function show_label_main(label) {
+        var color="grey"
+        if (label && label != "None")
+            color=label;
+        $("#media-label > .glyphicon").css("color", color);
+    }
+
+    function show_reject_filmstrip(id, rejected) {
+        if (rejected) {
+            $("#reject-flag-"+id).css("display", "inline");
+            $("#slide-"+id+" > .thumbnail").addClass("tn-rejected");
+        } else {
+            $("#reject-flag-"+id).css("display", "none");
+            $("#slide-"+id+" > .thumbnail").removeClass("tn-rejected");
+        }
+    }
+
+    function show_label_filmstrip(id, label) {
+        if (!label || label == "None") {
+            $("#label-flag-"+id).css("display", "none");
+        } else {
+            $("#label-flag-"+id).css("display", "inline");
+            $("#label-flag-"+id+" > .glyphicon-flag").css("color", label);
+        }
+    }
+
     function update_image_metadata(data) {
         $("#media-file").html(data.mediafile_path.split('/').pop());
         $("#media-date").html(data.date);
         $("#media-mime-type").html(data.mime_type);
         $("#media-catalog").html(data.catalog);
-        $("#media-label").html(data.label);
+        show_label_main(data.label);
         rating_stars_1("#media-rating", data.rating);
-        $("#media-rejected").html(data.rejected? "True":"False");
+        show_reject_main(data.rejected);
         $("#media-exposure").html(exposure(data.exposure_time));
         $("#media-f-number").html(data.f_number);
         $("#media-focal-length").html(data.focal_length);
         $("#media-gain").html(data.gain_value);
 
-        rating_stars_2(".stars-"+data.id, data.rating);
+        rating_stars_2("#stars-"+data.id, data.rating);
+        show_reject_filmstrip(data.id, data.rejected);
+        show_label_filmstrip(data.id, data.label);
     }
 
     var cur_media_meta_data;
@@ -133,7 +170,6 @@
             var type = "POST";
             values["csrfmiddlewaretoken"] = csrftoken;
             data = $.param(values);
-            console.log(data);
         }
 
         $.ajax({
@@ -173,6 +209,19 @@
         rating_stars_1("#"+$(this).parent().attr("id"), rating);
         cur_media_meta_data.rating = rating;
         set_image_metadata({rating: rating});
+    }
+
+    function toggle_reject() {
+        new_state=!cur_media_meta_data.rejected
+        cur_media_meta_data.rejected = new_state;
+        show_reject_main(new_state);
+        set_image_metadata({rejected: new_state});
+    }
+
+    function set_label() {
+        var label=$(this).attr("id").split("-").pop();
+        show_label_main(label);
+        set_image_metadata({label: label});
     }
 
     var cur_highlight=0;
@@ -274,15 +323,17 @@
 
         for(s=1; s < 6; s++)
             $("#rating-"+s).on("click", set_rating);
+        $("#media-reject").on("click", toggle_reject);
+        $(".label-menu-link").on("click", set_label);
     });
 </script>
 <div class="preview">
     <div class="preview-with-nav">
-        <button id="media-prev" type="button" class="btn btn-default btn-md">
+        <button id="media-prev" type="button" class="btn btn-default btn-md" data-role="none">
             <span class="glyphicon glyphicon-menu-left"></span>
         </button>
         <div class="img-preview-container" style="height: 480px"><img id="img-preview" /></div>
-        <button id="media-next" type="button" class="btn btn-default btn-lg">
+        <button id="media-next" type="button" class="btn btn-default btn-lg" data-role="none">
             <span class="glyphicon glyphicon-menu-right"></span>
         </button>
     </div>
@@ -291,15 +342,56 @@
         <div>Date: <span id="media-date"></span></div>
         <div>Type: <span id="media-mime-type"></span></div>
         <div>Catalog: <span id="media-catalog"></span></div>
-        <div>Label: <span id="media-label"></span></div>
-        <div></div>Rating: <span id="media-rating">
+
+        <div class="dropdown">
+            <button class="btn btn-default dropdown-toggle" type="button" id="media-label" data-toggle="dropdown"  data-role="none">
+                <span class="glyphicon glyphicon-flag" style="color: grey"></span> Label <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="menu">
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-None" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-Red" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-Yellow" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-Green" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-Blue" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
+                    </a>
+                </li>
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="label-Purple" class="label-menu-link">
+                        <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <div>Rating: <span id="media-rating">
             <span id="rating-1" class="glyphicon glyphicon-star-empty"></span>
             <span id="rating-2" class="glyphicon glyphicon-star-empty"></span>
             <span id="rating-3" class="glyphicon glyphicon-star-empty"></span>
             <span id="rating-4" class="glyphicon glyphicon-star-empty"></span>
             <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
         </span></div>
-        <div>Rejected: <span id="media-rejected"></span></div>
+        <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
+            <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> publish</div>
+            <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> rejected</div>
+        </button></div>
 
         <div>Exposure: <span id="media-exposure"></span></div>
         <div>F Number: <span id="media-f-number"></span></div>
@@ -316,16 +408,27 @@
                 <div class="caption">
                     <div>{{media.mediafile_path|basename}}</div>
                     <div>{{media.date|date:'Y-m-d H:i'}}</div>
-                    <span class="stars-{{media.id}}">
+
+                    <div><span id="stars-{{media.id}}">
                         <span class="glyphicon {% if media.rating > 0 %}glyphicon-star{% endif %}"></span>
                         <span class="glyphicon {% if media.rating > 1 %}glyphicon-star{% endif %}"></span>
                         <span class="glyphicon {% if media.rating > 2 %}glyphicon-star{% endif %}"></span>
                         <span class="glyphicon {% if media.rating > 3 %}glyphicon-star{% endif %}"></span>
                         <span class="glyphicon {% if media.rating > 4 %}glyphicon-star{% endif %}"></span>
+                    </span></div>
+
+                    <div><span id="reject-flag-{{media.id}}" {% if not media.rejected %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-trash"></span>
                     </span>
-                    <span class="glyphicon {% if media.rejected %}glyphicon-trash{% endif %}"></span>
-                    <span class="glyphicon {% if media.label %}{% if media.label != 'None' %}glyphicon-flag" style="color: {{media.label}}{% endif %}{% endif %}"></span>
-                    <span class="glyphicon {% if media.catalog != catalog %}glyphicon-export{% endif %}"></span>
+                    <span id="label-flag-{{media.id}}" {% if not media.label or media.label == 'None' %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-flag" style="color: {{media.label}}"></span>
+                    </span>
+                    <span id="export-flag-{{media.id}}" {% if media.catalog == catalog %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-export"></span>
+                    </span>
+                    <span class="glyphicon"></span>
+                    </div>
+
                 </div>
             </div>
         </div>
