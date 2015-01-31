@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from photos.models import Catalog, MediaFile
 from django.core import serializers
@@ -21,7 +21,32 @@ def lighttable(request, catalog_id):
         'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
 
 def metadata(request, media_id):
-    media = MediaFile.objects.filter(id=media_id)
-    json = serializers.serialize('json', media, use_natural_foreign_keys=True)
-    print json
+    media = get_object_or_404(MediaFile, id=media_id)
+    for item in request.POST:
+        if item == 'rating':
+            try:
+                rating=int(request.POST[item])
+                if (rating < 0) or (rating > 5):
+                    continue
+                media.rating = rating
+            except:
+                pass
+        elif item == 'label':
+            try:
+                media.label = request.POST[item]
+            except:
+                pass
+        elif item == 'rejected':
+            rejected = request.POST[item]
+            media.rejected = rejected.lower() == 'true'
+        elif item == 'catalog':
+            try:
+                catalog = Catalog.get(catalog=request.POST[item])
+                media.catalog = catalog
+            except:
+                pass
+
+    media.save()
+
+    json = serializers.serialize('json', [media], use_natural_foreign_keys=True)
     return HttpResponse(content=json, content_type='application/json')
