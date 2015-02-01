@@ -1,3 +1,4 @@
+from django.views.decorators.csrf import requires_csrf_token
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
 from photos.models import Catalog, MediaFile
@@ -20,6 +21,7 @@ def lighttable(request, catalog_id):
         'catalog': Catalog.objects.get(id=catalog_id),
         'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
 
+@requires_csrf_token
 def metadata(request, media_id):
     media = get_object_or_404(MediaFile, id=media_id)
     for item in request.POST:

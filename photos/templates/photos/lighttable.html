@@ -142,10 +142,15 @@
         }
     }
 
+    function display_timestamp(date) {
+        dt=date.split("T");
+        return dt[0]+" "+dt[1].substr(0,5);
+    }
+
     function update_image_metadata(data) {
         $("#media-file").html(data.mediafile_path.split('/').pop());
-        $("#media-date").html(data.date);
-        $("#media-mime-type").html(data.mime_type);
+        $("#media-date").html(display_timestamp(data.date));
+        // $("#media-mime-type").html(data.mime_type);
         $("#media-catalog").html(data.catalog);
         show_label_main(data.label);
         rating_stars_1("#media-rating", data.rating);
@@ -290,9 +295,6 @@
         $(this).off("vmousemove");
     }
 
-    function slide_stop_swipe(ev) {
-    }
-
     function setup_filmstrip() {
         for (idx=0; idx < media_list.length; idx++) {
             media=media_list[idx];
@@ -305,10 +307,11 @@
 
     var media_id=window.location.hash.substring(1);
     var cur_media = get_index_by_id(media_id);
-    var csrftoken = $.cookie('csrftoken');
+    var csrftoken;
 
     $(document).ready(function(){
-        console.log(csrftoken);
+        csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
+
         set_preview_image();
         setup_filmstrip();
         $("#img-preview").on("dragstart", function() { return false; });
@@ -340,7 +343,7 @@
     <div class="media-meta-data">
         <div>File: <span id="media-file"></span></div>
         <div>Date: <span id="media-date"></span></div>
-        <div>Type: <span id="media-mime-type"></span></div>
+        <!-- div>Type: <span id="media-mime-type"></span></div -->
         <div>Catalog: <span id="media-catalog"></span></div>
 
         <div class="dropdown">
@@ -438,6 +441,7 @@
 <div style="display: none">
     <img id="img-preview-prev" />
     <img id="img-preview-next" />
+    {% csrf_token %}
 </div>
 </body>
 </html>
