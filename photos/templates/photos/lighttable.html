@@ -147,7 +147,7 @@
 
         if (found) return;
 
-        catalog=catalog.replace(/[<>&]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
+        catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
 
         var new_element = $(
         '<li role="presentation">'+
@@ -181,6 +181,7 @@
     }
 
     function show_catalog_filmstrip(id, catalog) {
+        console.log(catalog, "{{catalog}}");
         if (catalog == "{{catalog}}")
             $("#export-flag-"+id).css("display", "none");
         else

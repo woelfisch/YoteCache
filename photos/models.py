@@ -37,7 +37,7 @@ class Catalog(models.Model):
         toolbox.mkdir(self.get_path())
 
     def delete(self, *args, **kwargs):
-        uncataloged, created=self.objects.get_or_create(name=settings.DEFAULT_CATALOG)
+        uncataloged, created=Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)
         for mediafile in MediaFile.objects.filter(catalog=self):
             mediafile.catalog=uncataloged
             mediafile.save()
@@ -69,7 +69,7 @@ class MimeType(models.Model):
         return self.type
 
     def delete(self, *args, **kwargs):
-        unknowntype, created = self.objects.get_or_create(type=settings.UNKOWN_MIME_TYPE)
+        unknowntype, created = MimeType.objects.get_or_create(type=settings.UNKOWN_MIME_TYPE)
         for mediafile in MediaFile.objects.filter(mime_type = self.type):
             mediafile.mime_type=unknowntype
         super(MimeType, self).delete(*args, **kwargs)

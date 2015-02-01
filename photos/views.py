@@ -1,3 +1,4 @@
+import re;
 from django.views.decorators.csrf import requires_csrf_token
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
@@ -43,7 +44,8 @@ def metadata(request, media_id):
             rejected = request.POST[item]
             media.rejected = rejected.lower() == 'true'
         elif item == 'catalog':
-            (catalog, created) = Catalog.objects.get_or_create(name=request.POST[item])
+            catalog_name=re.sub('[\\\\/]\s?', '', request.POST[item])
+            (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
             media.catalog = catalog
 
     media.save()
