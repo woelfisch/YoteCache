@@ -128,6 +128,39 @@
         $("#media-label > .glyphicon").css("color", color);
     }
 
+    function sanitize_catalog(catalog) {
+        return catalog.replace(/(^\s*)|(\s*$)|[\r\n/]/g, "");
+    }
+
+    function show_catalog_main(catalog) {
+        $(".catalog-menu-link > span").removeClass("glyphicon-ok").addClass("glyphicon-ok-none");
+
+        var found=false;
+        $(".catalog-menu-link").each(function(idx) {
+            console.log(sanitize_catalog($(this).text()), catalog);
+            if (sanitize_catalog($(this).text()) ==  catalog) {
+                $(this).children("span").removeClass("glyphicon-ok-none").addClass("glyphicon-ok");
+                found=true;
+                return false;
+            }
+        });
+
+        if (found) return;
+
+        catalog=catalog.replace(/[<>&]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
+
+        var new_element = $(
+        '<li role="presentation">'+
+        '   <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">'+
+        '       <span class="glyphicon glyphicon-ok"></span> '+catalog+
+        '   </a>'+
+        '</li>');
+
+        new_element.insertBefore(".catalog-dropdown > ul > .divider");
+        var anchor = new_element.children("a");
+        anchor.on("click", set_catalog);
+    }
+
     function show_reject_filmstrip(id, rejected) {
         if (rejected) {
             $("#reject-flag-"+id).css("display", "inline");
@@ -147,6 +180,13 @@
         }
     }
 
+    function show_catalog_filmstrip(id, catalog) {
+        if (catalog == "{{catalog}}")
+            $("#export-flag-"+id).css("display", "none");
+        else
+            $("#export-flag-"+id).css("display", "inline");
+    }
+
     function display_timestamp(date) {
         dt=date.split("T");
         return dt[0]+" "+dt[1].substr(0,5);
@@ -156,7 +196,7 @@
         $("#media-file").html(data.mediafile_path.split('/').pop());
         $("#media-date").html(display_timestamp(data.date));
         // $("#media-mime-type").html(data.mime_type);
-        // $("#media-catalog").html(data.catalog);
+        show_catalog_main(data.catalog);
         show_label_main(data.label);
         rating_stars_1("#media-rating", data.rating);
         show_reject_main(data.rejected);
@@ -168,6 +208,7 @@
         rating_stars_2("#stars-"+data.id, data.rating);
         show_reject_filmstrip(data.id, data.rejected);
         show_label_filmstrip(data.id, data.label);
+        show_catalog_filmstrip(data.id, data.catalog);
     }
 
     var cur_media_meta_data;
@@ -234,6 +275,18 @@
         set_image_metadata({label: label});
     }
 
+    function set_catalog() {
+        var catalog = sanitize_catalog($(this).text());
+        set_image_metadata({catalog: catalog});
+    }
+
+    function add_catalog(ev) {
+        var catalog = sanitize_catalog($(this).val());
+        $(this).val("");
+        $("#media-catalog").click();
+        set_image_metadata({catalog: catalog});
+    }
+
     var cur_highlight=0;
     var strip_first=0;
 
@@ -243,7 +296,7 @@
         var first=last-5;
         if (first < 0) {
             first=0;
-            last=5;
+            last=media_list.length < 6? media_list.length-1:5;
         }
         for (idx = 0; idx < first; idx++)
             $(slide_id(idx)).hide();
@@ -329,10 +382,14 @@
         $("div.filmstrip").on("mousedown vmousedown", slide_start_scroll);
         $("div.filmstrip").on("mouseup mouseleave vmouseup", slide_stop_scroll);
 
-        for(s=1; s < 6; s++)
-            $("#rating-"+s).on("click", set_rating);
+        $("#media-rating > span").on("click", set_rating);
         $("#media-reject").on("click", toggle_reject);
         $(".label-menu-link").on("click", set_label);
+        $(".catalog-menu-input").on("click", function(ev) {
+            ev.stopPropagation();
+        });
+        $(".catalog-menu-input").on("change", add_catalog);
+        $(".catalog-menu-link").on("click", set_catalog);
     });
 </script>
 <div class="preview">
@@ -350,18 +407,22 @@
         <div>Date: <span id="media-date"></span></div>
         <!-- div>Type: <span id="media-mime-type"></span></div -->
 
-        <div class="dropdown">
+        <div class="dropdown catalog-dropdown">
             <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
                 <span class="glyphicon glyphicon-folder-open"></span> Catalog <span class="caret"></span>
             </button>
             <ul class="dropdown-menu" role="menu">
             {% for cat in catalog_list %}
                 <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="catalog-{{cat.id}}" class="catalog-menu-link">
+                    <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">
                         <span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span> {{cat.name}}
                     </a>
                 </li>
             {% endfor %}
+                <li role="presentation" class="divider"></li>
+                <li role="presentation">
+                    <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="catalog-new" data-role="none" size="16">
+                </li>
             </ul>
         </div>
 

@@ -43,11 +43,8 @@ def metadata(request, media_id):
             rejected = request.POST[item]
             media.rejected = rejected.lower() == 'true'
         elif item == 'catalog':
-            try:
-                catalog = Catalog.get(catalog=request.POST[item])
-                media.catalog = catalog
-            except:
-                pass
+            (catalog, created) = Catalog.objects.get_or_create(name=request.POST[item])
+            media.catalog = catalog
 
     media.save()
 

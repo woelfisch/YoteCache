@@ -1,5 +1,6 @@
 from django.conf import settings
 import os
+import logging
 from pwd import getpwnam
 from grp import getgrnam
 
