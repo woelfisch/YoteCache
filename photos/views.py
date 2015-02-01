@@ -19,6 +19,7 @@ def index(request):
 def lighttable(request, catalog_id):
     return render(request, 'photos/lighttable.html', {
         'catalog': Catalog.objects.get(id=catalog_id),
+        'catalog_list': Catalog.objects.order_by('id'),
         'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
 
 @requires_csrf_token

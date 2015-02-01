@@ -10,7 +10,6 @@
     <link href="{% static 'jquery/jquery.mobile-1.4.5.min.css' %}" rel="stylesheet">
     <script src="{% static 'jquery/jquery-2.1.3.min.js' %}"></script>
     <script src="{% static 'jquery/jquery.mobile-1.4.5.min.js' %}"></script>
-    <script src="{% static 'jquery/jquery.cookie.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
 </head>
 <body>
@@ -30,6 +29,12 @@
     .tn-rejected {
         background-color: #c0c0c0;
     }
+
+    .glyphicon-ok-none:before {
+        content: "\2713";
+        color: transparent !important;
+    }
+}
 </style>
 <script>
     var media_list=[
@@ -151,7 +156,7 @@
         $("#media-file").html(data.mediafile_path.split('/').pop());
         $("#media-date").html(display_timestamp(data.date));
         // $("#media-mime-type").html(data.mime_type);
-        $("#media-catalog").html(data.catalog);
+        // $("#media-catalog").html(data.catalog);
         show_label_main(data.label);
         rating_stars_1("#media-rating", data.rating);
         show_reject_main(data.rejected);
@@ -344,7 +349,21 @@
         <div>File: <span id="media-file"></span></div>
         <div>Date: <span id="media-date"></span></div>
         <!-- div>Type: <span id="media-mime-type"></span></div -->
-        <div>Catalog: <span id="media-catalog"></span></div>
+
+        <div class="dropdown">
+            <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
+                <span class="glyphicon glyphicon-folder-open"></span> Catalog <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="menu">
+            {% for cat in catalog_list %}
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" id="catalog-{{cat.id}}" class="catalog-menu-link">
+                        <span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span> {{cat.name}}
+                    </a>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
 
         <div class="dropdown">
             <button class="btn btn-default dropdown-toggle" type="button" id="media-label" data-toggle="dropdown"  data-role="none">
@@ -392,8 +411,8 @@
             <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
         </span></div>
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
-            <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> publish</div>
-            <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> rejected</div>
+            <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
+            <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
         </button></div>
 
         <div>Exposure: <span id="media-exposure"></span></div>
