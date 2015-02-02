@@ -1,4 +1,4 @@
-import re;
+import re
 from django.views.decorators.csrf import requires_csrf_token
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse
