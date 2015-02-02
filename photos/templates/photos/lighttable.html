@@ -14,10 +14,14 @@
 </head>
 <body>
 <style>
-    .col-xs-6 {
-        padding: 2px;
+    .filmslide {
+        padding: 0;
+        margin-top: 2px;
+        border-style: solid;
+        border-width: 1px;
+        border-color: white;
     }
-    .col-xs-6 a {
+    a.filmslide {
         margin-bottom: 0;
     }
 
@@ -33,6 +37,10 @@
     .glyphicon-ok-none:before {
         content: "\2713";
         color: transparent !important;
+    }
+
+    .spacer {
+        height: 1em;
     }
 }
 </style>
@@ -307,8 +315,8 @@
         for (idx = first; idx <= last; idx++)
             $(slide_id(idx)).show();
 
-        $(slide_id(cur_highlight)).css('border-style', 'none');
-        $(slide_id(highlight)).css('border-style', 'solid');
+        $(slide_id(cur_highlight)).css('border-color', 'white');
+        $(slide_id(highlight)).css('border-color', 'black');
         cur_highlight=highlight;
         strip_first=first;
     }
@@ -383,7 +391,7 @@
 
         // $("div.preview").on("click", function() { $("#fullsize-popup").modal("show"); });
         // $("#fullsize-popup").on("click", function() { $(this).modal("hide"); });
-        $("div.preview").on("click", function() {
+        $("div.img-preview-container").on("click", function() {
             $(".page-lighttable").hide();
             $(".page-image").show();
         });
@@ -408,39 +416,40 @@
     });
 </script>
 <div class="page-lighttable">
-<div class="preview">
-    <div class="preview-with-nav">
-        <button id="media-prev" type="button" class="btn btn-default btn-md" data-role="none">
-            <span class="glyphicon glyphicon-menu-left"></span>
-        </button>
-        <div class="img-preview-container" style="height: 480px"><img id="img-preview"></div>
-        <button id="media-next" type="button" class="btn btn-default btn-lg" data-role="none">
-            <span class="glyphicon glyphicon-menu-right"></span>
-        </button>
+<div class="preview row">
+    <div class="preview-container col-xs-9">
+        <div class="preview-with-nav">
+            <div class="img-preview-container "><img id="img-preview" class="img-responsive"></div>
+            <!--
+            <button id="media-prev" type="button" class="btn btn-default btn-xs" data-role="none">
+                <span class="glyphicon glyphicon-menu-left"></span>
+            </button>
+            <button id="media-next" type="button" class="btn btn-default btn-xs" data-role="none">
+                <span class="glyphicon glyphicon-menu-right"></span>
+            </button>
+            -->
+        </div>
     </div>
-    <div class="media-meta-data">
+    <div class="media-meta-data col-xs-3">
         <div>File: <span id="media-file"></span></div>
         <div>Date: <span id="media-date"></span></div>
         <!-- div>Type: <span id="media-mime-type"></span></div -->
+        <div class="spacer"></div>
 
-        <div class="dropdown catalog-dropdown">
-            <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
-                <span class="glyphicon glyphicon-folder-open"></span> Catalog <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-            {% for cat in catalog_list %}
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">
-                        <span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span> {{cat.name}}
-                    </a>
-                </li>
-            {% endfor %}
-                <li role="presentation" class="divider"></li>
-                <li role="presentation">
-                    <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="catalog-new" data-role="none" size="16">
-                </li>
-            </ul>
-        </div>
+        <div>Exposure: <span id="media-exposure"></span></div>
+        <div>F Number: <span id="media-f-number"></span></div>
+        <div>Focal Length: <span id="media-focal-length"></span></div>
+        <div>ISO/Gain: <span id="media-gain"></span></div>
+        <div class="spacer"></div>
+
+        <div><span id="media-rating">
+            <span id="rating-1" class="glyphicon glyphicon-star-empty"></span>
+            <span id="rating-2" class="glyphicon glyphicon-star-empty"></span>
+            <span id="rating-3" class="glyphicon glyphicon-star-empty"></span>
+            <span id="rating-4" class="glyphicon glyphicon-star-empty"></span>
+            <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
+        </span></div>
+        <div class="spacer"></div>
 
         <div class="dropdown">
             <button class="btn btn-default dropdown-toggle" type="button" id="media-label" data-toggle="dropdown"  data-role="none">
@@ -479,29 +488,43 @@
                 </li>
             </ul>
         </div>
+        <div class="spacer"></div>
 
-        <div>Rating: <span id="media-rating">
-            <span id="rating-1" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-2" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-3" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-4" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
-        </span></div>
+        <div class="dropdown catalog-dropdown">
+            <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
+                <span class="glyphicon glyphicon-folder-open"></span> Catalog <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu" role="menu">
+            {% for cat in catalog_list %}
+                <li role="presentation">
+                    <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">
+                        <span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span> {{cat.name}}
+                    </a>
+                </li>
+            {% endfor %}
+                <li role="presentation" class="divider"></li>
+                <li role="presentation">
+                    <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="catalog-new" data-role="none" size="16">
+                </li>
+            </ul>
+        </div>
+
+
+
+
+
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
             <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
             <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
         </button></div>
 
-        <div>Exposure: <span id="media-exposure"></span></div>
-        <div>F Number: <span id="media-f-number"></span></div>
-        <div>Focal Length: <span id="media-focal-length"></span></div>
-        <div>ISO/Gain: <span id="media-gain"></span></div>
+
     </div>
 </div>
 <div class="filmstrip">
     <div class="row">
         {% for media in filmstrip %}
-        <div class="col-xs-6 col-md-2" id="slide-{{media.id}}" style="display: none">
+        <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
                 <img src="{{media|thumbnail}}" />
                 <div class="caption">
