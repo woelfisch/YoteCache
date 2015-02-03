@@ -31,6 +31,16 @@
         margin-bottom: 0;
     }
 
+    .thumbnail-container {
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: contain;
+    }
+
+    .thumbnail-background {
+        opacity: 0;
+    }
+
     .tn-rejected {
         background-color: #c0c0c0;
     }
@@ -44,14 +54,20 @@
         height: 1em;
     }
 
-    #img-template {
-        z-index: 0;
+    .image-background {
+        opacity: 0;
     }
 
-    #img-preview {
-        z-index: 1;
-        position: absolute;
-        top: 0;
+    .image-container {
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: contain;
+        background-color: white;
+    }
+
+    .media-catalog-title {
+        margin-left: 0.3em;
+        margin-right: 0.3em;
     }
 }
 </style>
@@ -66,71 +82,6 @@
             fullsize: "{{media|fullsize}}"
         },
     {% endfor %}];
-
-    $.fn.scaled_preview = function (template, callback) {
-        function resize_image(img, template) {
-            var img_x=parseFloat($(img).attr('size-x'));
-            var img_y=parseFloat($(img).attr('size-y'));
-            var template_width = $(template).width();
-            var template_height = $(template).height();
-
-            var dx = template_width - img_x;
-            var dy = template_height - img_y;
-
-            var scaled_x;
-            var scaled_y;
-
-            // image is same size (more or less)
-            if ((Math.abs(dx) < 2) && (Math.abs(dy) < 2)) {
-                scaled_x = template_width;
-                scaled_y = template_height;
-            } else
-            // image is larger
-            if ((dx < 0) || (dy < 0)) {
-                if (img_x > img_y) { // landscape
-                    scaled_x = template_width;
-                    scaled_y = template_width * img_y / img_x;
-                } else { // portrait
-                    scaled_y = template_height;
-                    scaled_x = template_height * img_x / img_y;
-                }
-            } else {
-                scaled_x = img_x;
-                scaled_y = img_y;
-            }
-
-            offset_x = Math.abs(template_width - scaled_x)/2; // + parseFloat($(img).attr('orig-left'));
-            offset_y = Math.abs(template_height - scaled_y)/2;
-
-            $(img).css({
-                width: scaled_x+"px",
-                height: scaled_y+"px",
-                top: offset_y+"px",
-                marginLeft: offset_x+"px"
-            });
-
-            if (callback) callback.call(this, {
-                template: [template_width, template_height],
-                img_size: [img_x, img_y],
-                scaled_to: [scaled_x, scaled_y]
-            });
-        }
-
-        function set_image_size(ev) {
-            $(this).attr('size-x', $(this).width());
-            $(this).attr('size-y', $(this).height());
-            resize_image(this, ev.data.template);
-        }
-
-        return this.each(function() {
-            $(window).on("load resize",
-                {img: this, template: template},
-                function(ev){resize_image(ev.data.img, ev.data.template);
-            });
-
-            $(this).on("load", {template: template}, set_image_size);
-        });
-    };
 
     function get_index_by_id(id) {
         for (idx=0; idx < media_list.length; idx++) {
@@ -156,9 +107,7 @@
         var prev_media=verify_index(cur_media-1);
         $("#media-prev").prop('disabled', prev_media == cur_media);
 
-        $("#img-preview").css({width: '', height: '', display: 'none'});
-        $("#img-preview").attr("src", media_list[cur_media].preview);
-        $("#img-preview").css('display', 'inline');
+        $(".image-container").css("background-image", "url("+media_list[cur_media].preview+")");
 
         $("#img-preview-next").attr("src", media_list[next_media].preview);
         $("#img-preview-prev").attr("src", media_list[prev_media].preview);
@@ -225,7 +174,6 @@
 
         var found=false;
         $(".catalog-menu-link").each(function(idx) {
-            console.log(sanitize_catalog($(this).text()), catalog);
             if (sanitize_catalog($(this).text()) ==  catalog) {
                 $(this).children("span").removeClass("glyphicon-ok-none").addClass("glyphicon-ok");
                 found=true;
@@ -269,7 +217,7 @@
     }
 
     function show_catalog_filmstrip(id, catalog) {
-        console.log(catalog, "{{catalog}}");
+        $("#media-catalog > span.media-catalog-title").text(catalog);
         if (catalog == "{{catalog}}")
             $("#export-flag-"+id).css("display", "none");
         else
@@ -282,17 +230,19 @@
     }
 
     function update_image_metadata(data) {
-        $("#media-file").html(data.mediafile_path.split('/').pop());
-        $("#media-date").html(display_timestamp(data.date));
-        // $("#media-mime-type").html(data.mime_type);
+        $("#media-file").text(data.mediafile_path.split('/').pop());
+        $("#media-date").text(display_timestamp(data.date));
+
+        document.title="PhotoYote | "+$("#media-file").text()+" | "+$("#media-date").text()
+        // $("#media-mime-type").text(data.mime_type);
         show_catalog_main(data.catalog);
         show_label_main(data.label);
         rating_stars_1("#media-rating", data.rating);
         show_reject_main(data.rejected);
-        $("#media-exposure").html(exposure(data.exposure_time));
-        $("#media-f-number").html(data.f_number);
-        $("#media-focal-length").html(data.focal_length);
-        $("#media-gain").html(data.gain_value);
+        $("#media-exposure").text(exposure(data.exposure_time)+" s");
+        $("#media-f-number").text(data.f_number);
+        $("#media-focal-length").text(data.focal_length+" mm");
+        $("#media-gain").text(data.gain_value);
 
         rating_stars_2("#stars-"+data.id, data.rating);
         show_reject_filmstrip(data.id, data.rejected);
@@ -445,7 +395,7 @@
     function setup_filmstrip() {
         for (idx=0; idx < media_list.length; idx++) {
             media=media_list[idx];
-            $('#slide-'+media.id+' > div > img').on("click vclick", {idx: idx}, function(ev) {
+            $('#slide-'+media.id+' > div > div').on("click vclick", {idx: idx}, function(ev) {
                 cur_media = ev.data.idx;
                 set_preview_image();
             });
@@ -458,11 +408,10 @@
 
     $(document).ready(function(){
         csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
-        $("#img-preview").scaled_preview("#img-template");
 
         set_preview_image();
         setup_filmstrip();
-        $("#img-preview").on("dragstart", function() { return false; });
+        $(".image-background").on("dragstart", function() { return false; });
 
         $("#media-prev").on("click", previous_image);
         $("div.preview").on("swiperight", previous_image);
@@ -500,8 +449,9 @@
     <div class="preview-container col-xs-9">
         <div class="preview-with-nav">
             <div class="img-preview-container ">
-                <img id="img-template" class="img-responsive" src="{% static 'photos/images/photoyote-preview-canvas.png' %}">
-                <img id="img-preview">
+                <div class="image-container" style="background-image: url({% static 'photos/images/photoyote-photoyote-preview-canvas.png' %})">
+                    <img class="image-background img-responsive" src="{% static 'photos/images/photoyote-preview-transparent.png' %}">
+                </div>
             </div>
             <!--
             <button id="media-prev" type="button" class="btn btn-default btn-xs" data-role="none">
@@ -575,7 +525,9 @@
 
         <div class="dropdown catalog-dropdown">
             <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
-                <span class="glyphicon glyphicon-folder-open"></span> Catalog <span class="caret"></span>
+                <span class="glyphicon glyphicon-folder-open"></span>
+                <span class="media-catalog-title">Catalog</span>
+                <span class="caret"></span>
             </button>
             <ul class="dropdown-menu" role="menu">
             {% for cat in catalog_list %}
@@ -592,10 +544,6 @@
             </ul>
         </div>
 
-
-
-
-
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
             <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
             <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
@@ -609,7 +557,9 @@
         {% for media in filmstrip %}
         <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
-                <img src="{{media|thumbnail}}" />
+                <div class="thumbnail-container" style="background-image: url({{media|thumbnail}})">
+                    <img class="thumbnail-background" src="{% static 'photos/images/photoyote-thumbnail-transparent.png'" %}">
+                </div>
                 <div class="caption">
                     <div>{{media.mediafile_path|basename}}</div>
                     <div>{{media.date|date:'Y-m-d H:i'}}</div>
