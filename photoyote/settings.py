@@ -96,9 +96,9 @@ STATUS_DIR = WEB_DIR+'status/'
 IMPORT_STATUS = 'import.json'
 PROCESS_STATUS = 'process.json'
 
-THUMBNAIL_UNAVAILABLE = 'thumbnail_unavailable.jpg'
-PREVIEW_UNAVAILABLE = 'preview_unavailable.jpg'
-FULLSIZE_UNAVAILABLE = 'fullsize_unavailable.jpg'
+THUMBNAIL_UNAVAILABLE = 'photos/images/photoyote-thumbnail-unavailable.png'
+PREVIEW_UNAVAILABLE = 'photos/images/photoyote-preview-unavailable.png'
+FULLSIZE_UNAVAILABLE = 'photos/images/photoyote-fullsize-unavailable.png'
 
 if DEBUG:
     STATICFILES_DIRS = (

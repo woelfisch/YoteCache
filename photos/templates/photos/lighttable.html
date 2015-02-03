@@ -43,6 +43,16 @@
     .spacer {
         height: 1em;
     }
+
+    #img-template {
+        z-index: 0;
+    }
+
+    #img-preview {
+        z-index: 1;
+        position: absolute;
+        top: 0;
+    }
 }
 </style>
 <script>
@@ -56,6 +66,71 @@
             fullsize: "{{media|fullsize}}"
         },
     {% endfor %}];
+
+    $.fn.scaled_preview = function (template, callback) {
+        function resize_image(img, template) {
+            var img_x=parseFloat($(img).attr('size-x'));
+            var img_y=parseFloat($(img).attr('size-y'));
+            var template_width = $(template).width();
+            var template_height = $(template).height();
+
+            var dx = template_width - img_x;
+            var dy = template_height - img_y;
+
+            var scaled_x;
+            var scaled_y;
+
+            // image is same size (more or less)
+            if ((Math.abs(dx) < 2) && (Math.abs(dy) < 2)) {
+                scaled_x = template_width;
+                scaled_y = template_height;
+            } else
+            // image is larger
+            if ((dx < 0) || (dy < 0)) {
+                if (img_x > img_y) { // landscape
+                    scaled_x = template_width;
+                    scaled_y = template_width * img_y / img_x;
+                } else { // portrait
+                    scaled_y = template_height;
+                    scaled_x = template_height * img_x / img_y;
+                }
+            } else {
+                scaled_x = img_x;
+                scaled_y = img_y;
+            }
+
+            offset_x = Math.abs(template_width - scaled_x)/2; // + parseFloat($(img).attr('orig-left'));
+            offset_y = Math.abs(template_height - scaled_y)/2;
+
+            $(img).css({
+                width: scaled_x+"px",
+                height: scaled_y+"px",
+                top: offset_y+"px",
+                marginLeft: offset_x+"px"
+            });
+
+            if (callback) callback.call(this, {
+                template: [template_width, template_height],
+                img_size: [img_x, img_y],
+                scaled_to: [scaled_x, scaled_y]
+            });
+        }
+
+        function set_image_size(ev) {
+            $(this).attr('size-x', $(this).width());
+            $(this).attr('size-y', $(this).height());
+            resize_image(this, ev.data.template);
+        }
+
+        return this.each(function() {
+            $(window).on("load resize",
+                {img: this, template: template},
+                function(ev){resize_image(ev.data.img, ev.data.template);
+            });
+
+            $(this).on("load", {template: template}, set_image_size);
+        });
+    };
 
     function get_index_by_id(id) {
         for (idx=0; idx < media_list.length; idx++) {
@@ -81,7 +156,10 @@
         var prev_media=verify_index(cur_media-1);
         $("#media-prev").prop('disabled', prev_media == cur_media);
 
+        $("#img-preview").css({width: '', height: '', display: 'none'});
         $("#img-preview").attr("src", media_list[cur_media].preview);
+        $("#img-preview").css('display', 'inline');
+
         $("#img-preview-next").attr("src", media_list[next_media].preview);
         $("#img-preview-prev").attr("src", media_list[prev_media].preview);
         window.location.hash=media_list[cur_media].id;
@@ -380,6 +458,7 @@
 
     $(document).ready(function(){
         csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
+        $("#img-preview").scaled_preview("#img-template");
 
         set_preview_image();
         setup_filmstrip();
@@ -420,7 +499,10 @@
 <div class="preview row">
     <div class="preview-container col-xs-9">
         <div class="preview-with-nav">
-            <div class="img-preview-container "><img id="img-preview" class="img-responsive"></div>
+            <div class="img-preview-container ">
+                <img id="img-template" class="img-responsive" src="{% static 'photos/images/photoyote-preview-canvas.png' %}">
+                <img id="img-preview">
+            </div>
             <!--
             <button id="media-prev" type="button" class="btn btn-default btn-xs" data-role="none">
                 <span class="glyphicon glyphicon-menu-left"></span>
