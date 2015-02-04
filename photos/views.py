@@ -18,13 +18,14 @@ def index(request):
 
 
 def lighttable(request, catalog_id):
+    catalog = get_object_or_404(Catalog, id=catalog_id)
     return render(request, 'photos/lighttable.html', {
-        'catalog': Catalog.objects.get(id=catalog_id),
+        'catalog': catalog,
         'catalog_list': Catalog.objects.order_by('id'),
         'filmstrip': MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')})
 
 @requires_csrf_token
-def metadata(request, media_id):
+def metadata(request, media_id=None):
     media = get_object_or_404(MediaFile, id=media_id)
     for item in request.POST:
         if item == 'rating':

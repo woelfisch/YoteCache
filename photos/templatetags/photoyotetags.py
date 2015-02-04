@@ -7,6 +7,9 @@ register = template.Library()
 
 @register.filter(name='proxyfile')
 def proxyfile(media_file):
+    if not media_file or not media_file.mime_type:
+        return None
+
     mt = media_file.mime_type.type
     if mt.startswith('video'):
         extension=".gif"

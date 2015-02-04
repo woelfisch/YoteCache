@@ -9,9 +9,9 @@
 <body>
 
 {% for catalog, media_list in all_media_list %}
-<h2>{{catalog}}</h2>
+<h2><a href="{% url 'lighttable' catalog.id %}">{{catalog}}</a></h2>
 {% for media in media_list %}
-<a href="{% url 'lighttable' catalog.id %}#{{media.id}}"><img src="{{media|thumbnail}}" /></a>
+<a href="{% url 'lighttable' catalog.id %}#{{media.id}}" id="{{media.id}}"><img src="{{media|thumbnail}}" /></a>
 {% endfor %}
 {% endfor %}
 

@@ -31,13 +31,14 @@
         margin-bottom: 0;
     }
 
-    .thumbnail-container {
+    .image-center-container {
         background-repeat: no-repeat;
         background-position: center center;
         background-size: contain;
+        background-color: white;
     }
 
-    .thumbnail-background {
+    .image-center-overlay {
         opacity: 0;
     }
 
@@ -54,34 +55,34 @@
         height: 1em;
     }
 
-    .image-background {
-        opacity: 0;
-    }
-
-    .image-container {
-        background-repeat: no-repeat;
-        background-position: center center;
-        background-size: contain;
-        background-color: white;
+    .bottom {
+        position: absolute;
+        bottom: 0px;
     }
 
     .media-catalog-title {
         margin-left: 0.3em;
         margin-right: 0.3em;
     }
-}
 </style>
 <script>
     var media_list=[
+    {% if filmstrip %}
     {% for media in filmstrip %}    {
             id: "{{media.id}}",
             filename: "{{media.filename}}",
             date: "{{media.date|date:'Y-m-d H:i'}}",
-            thumbnail: "{{media|thumbnail}}",
             preview: "{{media|preview}}",
             fullsize: "{{media|fullsize}}"
         },
-    {% endfor %}];
+    {% endfor %}{% else %}  {
+            id: "noimage",
+            filename: "No File",
+            date: "1970-01-01 00:00",
+            preview: "{{none|preview}}",
+            fullsize: "{{none|fullsize}}"
+        },
+    {% endif %}];
 
     function get_index_by_id(id) {
         for (idx=0; idx < media_list.length; idx++) {
@@ -101,20 +102,40 @@
     }
 
     function set_preview_image() {
+        $.mobile.loading("show");
+
         var next_media=verify_index(cur_media+1);
         $("#media-next").prop('disabled', next_media == cur_media);
 
         var prev_media=verify_index(cur_media-1);
         $("#media-prev").prop('disabled', prev_media == cur_media);
 
-        $(".image-container").css("background-image", "url("+media_list[cur_media].preview+")");
-
-        $("#img-preview-next").attr("src", media_list[next_media].preview);
-        $("#img-preview-prev").attr("src", media_list[prev_media].preview);
+        {% if not filmstrip %}
+        $("#image-preview").css("background-image", "url("+media_list[cur_media].preview+")");
+        $("#image-fullsize").attr("src", media_list[cur_media].fullsize);
+        $("#media-home").attr("href", "{% url 'index' %}");
+        update_image_metadata({
+                mediafile_path: "No File",
+                date: "1970-01-01T00:00:00Z",
+                catalog: "{{catalog}}",
+                rating: 0,
+                rejected: true,
+                label: "None",
+                exposure_time: .008,
+                gain_value: 100,
+                f_number: 8,
+                focal_length: 50,
+            });
+        {% else %}
+        $("#image-preview").css("background-image", "url("+media_list[cur_media].preview+")");
+        $("#image-preview-next").attr("src", media_list[next_media].preview);
+        $("#image-preview-prev").attr("src", media_list[prev_media].preview);
         window.location.hash=media_list[cur_media].id;
         set_image_metadata();
         set_filmstrip_slide(cur_media);
-        $("#img-fullsize").attr("src", media_list[cur_media].fullsize);
+        $("#image-fullsize").attr("src", media_list[cur_media].fullsize);
+        $("#media-home").attr("href", "{% url 'index' %}#"+media_list[cur_media].id);
+        {% endif %}
     }
 
     function exposure(tval) {
@@ -248,6 +269,7 @@
         show_reject_filmstrip(data.id, data.rejected);
         show_label_filmstrip(data.id, data.label);
         show_catalog_filmstrip(data.id, data.catalog);
+        $.mobile.loading("hide");
     }
 
     var cur_media_meta_data;
@@ -409,9 +431,11 @@
     $(document).ready(function(){
         csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
 
+        $.mobile.loading("show");
+
         set_preview_image();
         setup_filmstrip();
-        $(".image-background").on("dragstart", function() { return false; });
+        $(".image-center-overlay").on("dragstart", function() { return false; });
 
         $("#media-prev").on("click", previous_image);
         $("div.preview").on("swiperight", previous_image);
@@ -420,7 +444,7 @@
 
         // $("div.preview").on("click", function() { $("#fullsize-popup").modal("show"); });
         // $("#fullsize-popup").on("click", function() { $(this).modal("hide"); });
-        $("div.img-preview-container").on("click", function() {
+        $("div.image-preview-container").on("click", function() {
             $(".page-lighttable").hide();
             $(".page-image").show();
         });
@@ -440,30 +464,34 @@
         });
         $(".catalog-menu-input").on("change", add_catalog);
         $(".catalog-menu-link").on("click", set_catalog);
-
-
     });
 </script>
 <div class="page-lighttable">
 <div class="preview row">
     <div class="preview-container col-xs-9">
         <div class="preview-with-nav">
-            <div class="img-preview-container ">
-                <div class="image-container" style="background-image: url({% static 'photos/images/photoyote-photoyote-preview-canvas.png' %})">
-                    <img class="image-background img-responsive" src="{% static 'photos/images/photoyote-preview-transparent.png' %}">
+            <div class="image-preview-container ">
+                <div id="image-preview"  class="image-center-container" style="background-image: url({% static 'photos/images/photoyote-preview-canvas.png' %})">
+                    <img class="image-center-overlay image-responsive" src="{% static 'photos/images/photoyote-preview-transparent.png' %}">
                 </div>
             </div>
-            <!--
-            <button id="media-prev" type="button" class="btn btn-default btn-xs" data-role="none">
-                <span class="glyphicon glyphicon-menu-left"></span>
-            </button>
-            <button id="media-next" type="button" class="btn btn-default btn-xs" data-role="none">
-                <span class="glyphicon glyphicon-menu-right"></span>
-            </button>
-            -->
         </div>
     </div>
     <div class="media-meta-data col-xs-3">
+        <div class="row">
+            <button id="media-prev" type="button" class="btn btn-default btn-xs col-xs-4" data-role="none">
+                <span class="glyphicon glyphicon-menu-left"></span>
+            </button>
+            <a id="media-home" type="button" class="btn btn-default btn-xs col-xs-4" href="#"  data-role="none" data-ajax="false">
+                <span class="glyphicon glyphicon-home"></span>
+            </a>
+            <button id="media-next" type="button" class="btn btn-default btn-xs col-xs-4" data-role="none">
+                <span class="glyphicon glyphicon-menu-right"></span>
+            </button>
+        </div>
+
+        <div class="spacer"></div>
+
         <div>File: <span id="media-file"></span></div>
         <div>Date: <span id="media-date"></span></div>
         <!-- div>Type: <span id="media-mime-type"></span></div -->
@@ -549,16 +577,24 @@
             <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
         </button></div>
 
+        <div class="spacer"></div>
+
+        <div>
+            <button id="media-bulkaction" type="button" class="btn btn-default" data-toggle="button" data-role="none">
+                <span class="glyphicon glyphicon-tasks"></span> Bulk Action
+            </button>
+        </div>
 
     </div>
 </div>
+
 <div class="filmstrip">
     <div class="row">
         {% for media in filmstrip %}
         <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
-                <div class="thumbnail-container" style="background-image: url({{media|thumbnail}})">
-                    <img class="thumbnail-background" src="{% static 'photos/images/photoyote-thumbnail-transparent.png'" %}">
+                <div class="image-center-container thumbnail-image" style="background-image: url({{media|thumbnail}})">
+                    <img class="image-center-overlay" src="{% static 'photos/images/photoyote-thumbnail-transparent.png'" %}">
                 </div>
                 <div class="caption">
                     <div>{{media.mediafile_path|basename}}</div>
@@ -593,12 +629,12 @@
 </div>
 
 <div class="page-image" style="display: none">
-    <img id="img-fullsize" class="img-responsive" data-role="none">
+    <img id="image-fullsize" class="image-responsive" data-role="none">
 </div>
 
 <div style="display: none">
-    <img id="img-preview-prev">
-    <img id="img-preview-next">
+    <img id="image-preview-prev">
+    <img id="image-preview-next">
     {% csrf_token %}
 </div>
 </body>
