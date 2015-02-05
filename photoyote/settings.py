@@ -100,6 +100,9 @@ THUMBNAIL_UNAVAILABLE = 'photos/images/photoyote-thumbnail-unavailable.png'
 PREVIEW_UNAVAILABLE = 'photos/images/photoyote-preview-unavailable.png'
 FULLSIZE_UNAVAILABLE = 'photos/images/photoyote-fullsize-unavailable.png'
 
+THUMBNAIL_TRANSPARENT_OVERLAY = 'photos/images/photoyote-thumbnail-transparent.png'
+PREVIEW_TRANSPARENT_OVERLAY = 'photos/images/photoyote-preview-transparent.png'
+
 if DEBUG:
     STATICFILES_DIRS = (
         WEB_DIR,

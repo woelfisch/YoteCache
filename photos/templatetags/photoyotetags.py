@@ -59,4 +59,25 @@ def fullsize(media_file):
 
 @register.filter(name='basename')
 def basename(media_file):
-    return os.path.split(media_file)[1];
+    return os.path.split(media_file)[1]
+
+@register.tag(name='static-image')
+def static_image(parser, token):
+    tag_name, what = token.split_contents()
+    print tag_name, what
+    prefix=settings.STATIC_URL
+
+    if what == 'thumbnail':
+        return Url(prefix+settings.THUMBNAIL_TRANSPARENT_OVERLAY)
+    if what == 'preview':
+        return Url(prefix+settings.PREVIEW_TRANSPARENT_OVERLAY)
+    if what == 'unavailable':
+        return Url(prefix+settings.PREVIEW_UNAVAILABLE)
+
+    return Url(prefix+"MISSING-IMAGE-FIX-ME.png")
+
+class Url(template.Node):
+    def __init__(self, value):
+        self.value = value
+    def render(self, context):
+        return self.value

@@ -471,8 +471,8 @@
     <div class="preview-container col-xs-9">
         <div class="preview-with-nav">
             <div class="image-preview-container ">
-                <div id="image-preview"  class="image-center-container" style="background-image: url({% static 'photos/images/photoyote-preview-canvas.png' %})">
-                    <img class="image-center-overlay image-responsive" src="{% static 'photos/images/photoyote-preview-transparent.png' %}">
+                <div id="image-preview"  class="image-center-container" style="background-image: url({% static-image unavailable %})">
+                    <img class="image-center-overlay image-responsive" src="{% static-image preview %}">
                 </div>
             </div>
         </div>
@@ -594,7 +594,7 @@
         <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
                 <div class="image-center-container thumbnail-image" style="background-image: url({{media|thumbnail}})">
-                    <img class="image-center-overlay" src="{% static 'photos/images/photoyote-thumbnail-transparent.png'" %}">
+                    <img class="image-center-overlay" src="{% static-image thumbnail %}">
                 </div>
                 <div class="caption">
                     <div>{{media.mediafile_path|basename}}</div>
