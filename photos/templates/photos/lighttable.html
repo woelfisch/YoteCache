@@ -68,20 +68,9 @@
 <script>
     var media_list=[
     {% if filmstrip %}
-    {% for media in filmstrip %}    {
-            id: "{{media.id}}",
-            filename: "{{media.filename}}",
-            date: "{{media.date|date:'Y-m-d H:i'}}",
-            preview: "{{media|preview}}",
-            fullsize: "{{media|fullsize}}"
-        },
-    {% endfor %}{% else %}  {
-            id: "noimage",
-            filename: "No File",
-            date: "1970-01-01 00:00",
-            preview: "{{none|preview}}",
-            fullsize: "{{none|fullsize}}"
-        },
+    {% for media in filmstrip %}
+    { id: "{{media.id}}", preview: "{{media|preview}}", fullsize: "{{media|fullsize}}" },{% endfor %}
+    {% else %}{ id: "noimage", preview: "{{none|preview}}", fullsize: "{{none|fullsize}}" },
     {% endif %}];
 
     function get_index_by_id(id) {
@@ -561,7 +550,7 @@
             {% for cat in catalog_list %}
                 <li role="presentation">
                     <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">
-                        <span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span> {{cat.name}}
+                        <!-- span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span--> {{cat.name}}
                     </a>
                 </li>
             {% endfor %}
@@ -580,7 +569,7 @@
         <div class="spacer"></div>
 
         <div>
-            <button id="media-bulkaction" type="button" class="btn btn-default" data-toggle="button" data-role="none">
+            <button id="media-bulkaction" type="button" class="btn btn-default" data-toggle="modal" data-target="#bulk-action-modal" data-role="none">
                 <span class="glyphicon glyphicon-tasks"></span> Bulk Action
             </button>
         </div>
@@ -630,6 +619,247 @@
 
 <div class="page-image" style="display: none">
     <img id="image-fullsize" class="image-responsive" data-role="none">
+</div>
+
+<div class="modal" id="bulk-action-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" data-role="none">
+                    &times;
+                </button>
+                <h4 class="modal-title">Bulk Action</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row"><div class="col-xs-4">
+                <div class="dropdown bulk-attribute-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-attribute" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-attribute-selected">Select </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-asterisk"></span> All
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-star"></span> Rating
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> Label
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-folder-open"></span> Catalog
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-ok" style="color: green"></span> Published
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-calendar"></span> Timestamp
+                        </a></li>
+
+                    </ul>
+                </div>
+                </div><div class="col-xs-4">
+                <div class="dropdown bulk-rating-operator-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-operator" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-rating-operator-selected">matches </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> = </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &ne; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &ge; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &le; </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-equal-operator-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-equal-operator" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-rating-operator-selected">matches </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-equal-operator-link"> is </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-equal-operator-link"> is not </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-4">
+                <div class="dropdown bulk-rating-value">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-value" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-rating-value-selected">Rating </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-0" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star-empty"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-1" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-2" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-3" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-4" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-5" class="bulk-rating-value-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-label-value">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-label-value" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-label-value-selected">Label </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-None" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Red" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Yellow" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Green" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Blue" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Purple" class="bulk-label-value-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
+                        </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-catalog-value">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-catalog-value" data-toggle="dropdown"  data-role="none">
+                        <span class="media-catalog-title">{{catalog}}</span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                    {% for cat in catalog_list %}
+                        <li role="presentation">
+                            <a role="menuitem" tabindex="-1" href="#" class="bulk-catalog-value-link">{{cat.name}}</a></li>
+                    {% endfor %}
+                        <li role="presentation" class="divider hide"></li>
+                    </ul>
+                </div>
+                </div></div>
+                <hr>
+                <div class="row"><div class="col-xs-4">
+                <div class="dropdown bulk-main-action-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-main-action" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-main-action-selected">Action </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-star"></span> Set rating
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> Set label
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-trash" style="color: red"></span> Reject
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                            <span class="glyphicon glyphicon-ok" style="color: green"></span> Publish
+                        </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-4">
+                <div class="dropdown bulk-rating-action">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-action" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-rating-action-selected">Rating </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-0" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star-empty"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-1" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-2" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-3" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-4" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-5" class="bulk-rating-action-link">
+                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
+                        </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-label-action">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-label-action" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-label-action-selected">Label </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-None" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Red" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Yellow" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Green" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Blue" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Purple" class="bulk-label-action-menu-link">
+                            <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
+                        </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-catalog-action">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-catalog-action" data-toggle="dropdown"  data-role="none">
+                        <span class="media-catalog-title">{{catalog}}</span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                    {% for cat in catalog_list %}
+                        <li role="presentation">
+                            <a role="menuitem" tabindex="-1" href="#" class="bulk-catalog-action-link">{{cat.name}}</a></li>
+                    {% endfor %}
+                        <li role="presentation" class="divider"></li>
+                        <li role="presentation">
+                            <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="bulk-catalogaction-new" data-role="none" size="16">
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-xs-4"></div>
+                </div>    
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" data-role="none">
+                    <span class="glyphicon glyphicon-remove"> Close</span>
+                </button>
+                <button type="button" class="btn btn-primary" data-role="none">
+                    <span class="glyphicon glyphicon-ok"> Commit</span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div style="display: none">
