@@ -179,32 +179,30 @@
         return catalog.replace(/(^\s*)|(\s*$)|[\r\n/]/g, "");
     }
 
-    function show_catalog_main(catalog) {
-        $(".catalog-menu-link > span").removeClass("glyphicon-ok").addClass("glyphicon-ok-none");
-
+    function amend_catalog_dropdown(catalog, name, click_handler) {
         var found=false;
-        $(".catalog-menu-link").each(function(idx) {
+        $("."+name+"-link").each(function(idx) {
             if (sanitize_catalog($(this).text()) ==  catalog) {
-                $(this).children("span").removeClass("glyphicon-ok-none").addClass("glyphicon-ok");
                 found=true;
                 return false;
             }
         });
-
         if (found) return;
 
         catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
 
         var new_element = $(
         '<li role="presentation">'+
-        '   <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">'+
-        '       <span class="glyphicon glyphicon-ok"></span> '+catalog+
-        '   </a>'+
+        '   <a role="menuitem" tabindex="-1" href="#" class="'+name+'-link">'+catalog+'</a>'+
         '</li>');
 
-        new_element.insertBefore(".catalog-dropdown > ul > .divider");
+        new_element.insertBefore("."+name+" > ul > .endoflist");
         var anchor = new_element.children("a");
-        anchor.on("click", set_catalog);
+        anchor.on("click", click_handler);
+    }
+
+    function show_catalog_main(catalog) {
+        amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
     }
 
     function show_reject_filmstrip(id, rejected) {
@@ -219,10 +217,10 @@
 
     function show_label_filmstrip(id, label) {
         if (!label || label == "None") {
-            $("#label-flag-"+id).css("display", "none");
+            $("#media-label-flag-"+id).css("display", "none");
         } else {
-            $("#label-flag-"+id).css("display", "inline");
-            $("#label-flag-"+id+" > .glyphicon-flag").css("color", label);
+            $("#media-label-flag-"+id).css("display", "inline");
+            $("#media-label-flag-"+id+" > .glyphicon-flag").css("color", label);
         }
     }
 
@@ -447,12 +445,12 @@
 
         $("#media-rating > span").on("click", set_rating);
         $("#media-reject").on("click", toggle_reject);
-        $(".label-menu-link").on("click", set_label);
-        $(".catalog-menu-input").on("click", function(ev) {
+        $(".media-label-link").on("click", set_label);
+        $(".media-catalog-input").on("click", function(ev) {
             ev.stopPropagation();
         });
-        $(".catalog-menu-input").on("change", add_catalog);
-        $(".catalog-menu-link").on("click", set_catalog);
+        $(".media-catalog-input").on("change", add_catalog);
+        $(".media-catalog-link").on("click", set_catalog);
     });
 </script>
 <div class="page-lighttable">
@@ -460,8 +458,8 @@
     <div class="preview-container col-xs-9">
         <div class="preview-with-nav">
             <div class="image-preview-container ">
-                <div id="image-preview"  class="image-center-container" style="background-image: url({% static-image unavailable %})">
-                    <img class="image-center-overlay image-responsive" src="{% static-image preview %}">
+                <div id="image-preview"  class="image-center-container" style="background-image: url({% static-image 'unavailable' %})">
+                    <img class="image-center-overlay image-responsive" src="{% static-image 'preview' %}">
                 </div>
             </div>
         </div>
@@ -500,67 +498,9 @@
             <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
         </span></div>
         <div class="spacer"></div>
-
-        <div class="dropdown">
-            <button class="btn btn-default dropdown-toggle" type="button" id="media-label" data-toggle="dropdown"  data-role="none">
-                <span class="glyphicon glyphicon-flag" style="color: grey"></span> Label <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-None" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
-                    </a>
-                </li>
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-Red" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
-                    </a>
-                </li>
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-Yellow" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
-                    </a>
-                </li>
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-Green" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
-                    </a>
-                </li>
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-Blue" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
-                    </a>
-                </li>
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" id="label-Purple" class="label-menu-link">
-                        <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
-                    </a>
-                </li>
-            </ul>
-        </div>
+        {% dropdown_label name="media-label" has_icon=true %}
         <div class="spacer"></div>
-
-        <div class="dropdown catalog-dropdown">
-            <button class="btn btn-default dropdown-toggle" type="button" id="media-catalog" data-toggle="dropdown"  data-role="none">
-                <span class="glyphicon glyphicon-folder-open"></span>
-                <span class="media-catalog-title">Catalog</span>
-                <span class="caret"></span>
-            </button>
-            <ul class="dropdown-menu" role="menu">
-            {% for cat in catalog_list %}
-                <li role="presentation">
-                    <a role="menuitem" tabindex="-1" href="#" class="catalog-menu-link">
-                        <!-- span class="glyphicon {% if cat == catalog %}glyphicon-ok{%else%}glyphicon-ok-none{%endif%}"></span--> {{cat.name}}
-                    </a>
-                </li>
-            {% endfor %}
-                <li role="presentation" class="divider"></li>
-                <li role="presentation">
-                    <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="catalog-new" data-role="none" size="16">
-                </li>
-            </ul>
-        </div>
-
+        {% dropdown_category name="media-catalog" has_input_field=1 has_icon=true %}
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
             <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
             <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
@@ -583,24 +523,20 @@
         <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
                 <div class="image-center-container thumbnail-image" style="background-image: url({{media|thumbnail}})">
-                    <img class="image-center-overlay" src="{% static-image thumbnail %}">
+                    <img class="image-center-overlay" src="{% static-image 'thumbnail' %}">
                 </div>
                 <div class="caption">
                     <div>{{media.mediafile_path|basename}}</div>
                     <div>{{media.date|date:'Y-m-d H:i'}}</div>
 
                     <div><span id="stars-{{media.id}}">
-                        <span class="glyphicon {% if media.rating > 0 %}glyphicon-star{% endif %}"></span>
-                        <span class="glyphicon {% if media.rating > 1 %}glyphicon-star{% endif %}"></span>
-                        <span class="glyphicon {% if media.rating > 2 %}glyphicon-star{% endif %}"></span>
-                        <span class="glyphicon {% if media.rating > 3 %}glyphicon-star{% endif %}"></span>
-                        <span class="glyphicon {% if media.rating > 4 %}glyphicon-star{% endif %}"></span>
+                        {% star-rating media.rating spacing=True %}
                     </span></div>
 
                     <div><span id="reject-flag-{{media.id}}" {% if not media.rejected %}style="display: none"{%endif%}>
                         <span class="glyphicon glyphicon-trash"></span>
                     </span>
-                    <span id="label-flag-{{media.id}}" {% if not media.label or media.label == 'None' %}style="display: none"{%endif%}>
+                    <span id="media-label-flag-{{media.id}}" {% if not media.label or media.label == 'None' %}style="display: none"{%endif%}>
                         <span class="glyphicon glyphicon-flag" style="color: {{media.label}}"></span>
                     </span>
                     <span id="export-flag-{{media.id}}" {% if media.catalog == catalog %}style="display: none"{%endif%}>
@@ -686,71 +622,9 @@
                     </ul>
                 </div>
                 </div><div class="col-xs-4">
-                <div class="dropdown bulk-rating-value">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-value" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-rating-value-selected">Rating </span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-0" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star-empty"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-1" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-2" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-3" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-4" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-value-5" class="bulk-rating-value-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                    </ul>
-                </div>
-                <div class="dropdown bulk-label-value">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-label-value" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-label-value-selected">Label </span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-None" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Red" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Yellow" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Green" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Blue" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-value-Purple" class="bulk-label-value-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
-                        </a></li>
-                    </ul>
-                </div>
-                <div class="dropdown bulk-catalog-value">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-catalog-value" data-toggle="dropdown"  data-role="none">
-                        <span class="media-catalog-title">{{catalog}}</span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                    {% for cat in catalog_list %}
-                        <li role="presentation">
-                            <a role="menuitem" tabindex="-1" href="#" class="bulk-catalog-value-link">{{cat.name}}</a></li>
-                    {% endfor %}
-                        <li role="presentation" class="divider hide"></li>
-                    </ul>
-                </div>
+                {% dropdown_rating name="bulk-rating-value" %}
+                {% dropdown_label name="bulk-label-value" %}
+                {% dropdown_category name="bulk-catalog-value" %}
                 </div></div>
                 <hr>
                 <div class="row"><div class="col-xs-4">
@@ -778,74 +652,9 @@
                     </ul>
                 </div>
                 </div><div class="col-xs-4">
-                <div class="dropdown bulk-rating-action">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-action" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-rating-action-selected">Rating </span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-0" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star-empty"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-1" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-2" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-3" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-4" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-rating-action-5" class="bulk-rating-action-link">
-                            <span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span><span class="glyphicon glyphicon-star"></span>
-                        </a></li>
-                    </ul>
-                </div>
-                <div class="dropdown bulk-label-action">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-label-action" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-label-action-selected">Label </span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-None" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Red" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Yellow" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Green" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Blue" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
-                        </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="bulk-label-action-Purple" class="bulk-label-action-menu-link">
-                            <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
-                        </a></li>
-                    </ul>
-                </div>
-                <div class="dropdown bulk-catalog-action">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-catalog-action" data-toggle="dropdown"  data-role="none">
-                        <span class="media-catalog-title">{{catalog}}</span>
-                        <span class="caret"></span>
-                    </button>
-                    <ul class="dropdown-menu" role="menu">
-                    {% for cat in catalog_list %}
-                        <li role="presentation">
-                            <a role="menuitem" tabindex="-1" href="#" class="bulk-catalog-action-link">{{cat.name}}</a></li>
-                    {% endfor %}
-                        <li role="presentation" class="divider"></li>
-                        <li role="presentation">
-                            <input type="text" class="form-control catalog-menu-input" placeholder="Add..." id="bulk-catalogaction-new" data-role="none" size="16">
-                        </li>
-                    </ul>
-                </div>
+                {% dropdown_rating name="bulk-rating-action" %}
+                {% dropdown_label name="bulk-label-action" %}
+                {% dropdown_category name="bulk-catalog-action" has_input_field=true %}
                 <div class="col-xs-4"></div>
                 </div>    
                 </div>

@@ -1,0 +1,27 @@
+{% load photoyotetags %}
+<div class="dropdown {{name}}-value">
+    <button class="btn btn-default dropdown-toggle" type="button" id="{{name}}-value" data-toggle="dropdown" data-role="none">
+        <span class="{{name}}-value-selected">Rating </span>
+        <span class="caret"></span>
+    </button>
+    <ul class="dropdown-menu" role="menu">
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-0" class="{{name}}-value-link">
+            {% star-rating 0 fillup=2 %}
+        </a></li>
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-1" class="{{name}}-value-link">
+            {% star-rating 1 %}
+        </a></li>
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-2" class="{{name}}-value-link">
+            {% star-rating 2 %}
+        </a></li>
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-3" class="{{name}}-value-link">
+            {% star-rating 3 %}
+        </a></li>
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-4" class="{{name}}-value-link">
+            {% star-rating 4 %}
+        </a></li>
+        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" id="{{name}}-value-5" class="{{name}}-value-link">
+            {% star-rating 5 %}
+        </a></li>
+    </ul>
+</div>

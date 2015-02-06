@@ -61,23 +61,78 @@ def fullsize(media_file):
 def basename(media_file):
     return os.path.split(media_file)[1]
 
-@register.tag(name='static-image')
-def static_image(parser, token):
-    tag_name, what = token.split_contents()
-    print tag_name, what
+@register.simple_tag(name='static-image')
+def static_image(what):
     prefix=settings.STATIC_URL
 
     if what == 'thumbnail':
-        return Url(prefix+settings.THUMBNAIL_TRANSPARENT_OVERLAY)
+        return prefix+settings.THUMBNAIL_TRANSPARENT_OVERLAY
     if what == 'preview':
-        return Url(prefix+settings.PREVIEW_TRANSPARENT_OVERLAY)
+        return prefix+settings.PREVIEW_TRANSPARENT_OVERLAY
     if what == 'unavailable':
-        return Url(prefix+settings.PREVIEW_UNAVAILABLE)
+        return prefix+settings.PREVIEW_UNAVAILABLE
 
-    return Url(prefix+"MISSING-IMAGE-FIX-ME.png")
+    return prefix+"MISSING-IMAGE-FIX-ME.png"
 
-class Url(template.Node):
-    def __init__(self, value):
-        self.value = value
-    def render(self, context):
-        return self.value
+@register.simple_tag(name='star-rating')
+def star_rating(rating, **kwargs):
+    spacing = 'spacing' in kwargs
+
+    if 'fillup' in kwargs:
+        fillup = kwargs['fillup']
+    else:
+        fillup = 0
+
+    if 'style' in kwargs:
+        style = kwargs['style']
+    else:
+        style = None
+
+    def span_with_style(icon):
+        rv='<span class="glyphicon '+icon+'"'
+        if style:
+            rv=rv+'style="'+style+'"'
+        return rv+"></span>"
+
+    if not rating:
+        if not fillup: return span_with_style('')
+        if fillup == 2:
+            return span_with_style('glyphicon-star-empty')
+
+    rv = ''
+    for r in range(5):
+        if r+1 <= rating:
+            rv = rv + span_with_style('glyphicon-star')
+        else:
+            if fillup == 1:
+                rv = rv + span_with_style('glyphicon-star-empty')
+            else:
+                rv = rv + span_with_style('')
+
+        if spacing:
+            rv = rv+' '
+
+    return rv
+
+@register.inclusion_tag("photos/dropdown-category.html", takes_context=True)
+def dropdown_category(context, **kwargs):
+    return {
+        "catalog": context["catalog"],
+        "catalog_list": context["catalog_list"],
+        "name": kwargs["name"],
+        "has_input_field": "has_input_field" in kwargs,
+        "has_icon": "has_icon" in kwargs
+    }
+
+@register.inclusion_tag("photos/dropdown-label.html", takes_context=False)
+def dropdown_label(**kwargs):
+    return {
+        "name": kwargs["name"],
+        "has_icon": "has_icon" in kwargs
+    }
+
+@register.inclusion_tag("photos/dropdown-rating.html", takes_context=False)
+def dropdown_rating(**kwargs):
+    return {
+        "name": kwargs["name"],
+    }

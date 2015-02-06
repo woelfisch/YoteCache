@@ -1,0 +1,39 @@
+<div class="dropdown {{name}}">
+    <button class="btn btn-default dropdown-toggle" type="button" id="{{name}}" data-toggle="dropdown"
+            data-role="none">
+        {% if has_icon %}<span class="glyphicon glyphicon-flag" style="color: grey"></span>{% endif %}
+        Label <span class="caret"></span>
+    </button>
+    <ul class="dropdown-menu" role="menu">
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-None" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: grey"></span> None
+            </a>
+        </li>
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-Red" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: red"></span> Red
+            </a>
+        </li>
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-Yellow" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: yellow"></span> Yellow
+            </a>
+        </li>
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-Green" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: green"></span> Green
+            </a>
+        </li>
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-Blue" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: blue"></span> Blue
+            </a>
+        </li>
+        <li role="presentation">
+            <a role="menuitem" tabindex="-1" href="#" id="{{name}}-Purple" class="{{name}}-link">
+                <span class="glyphicon glyphicon-flag" style="color: purple"></span> Purple
+            </a>
+        </li>
+    </ul>
+</div>
