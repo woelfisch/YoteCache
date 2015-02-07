@@ -6,7 +6,7 @@
     </button>
     <ul class="dropdown-menu" role="menu">
         {% for cat in catalog_list %}
-        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="{{name}}-link">{{cat.name}}</a></li>
+        <li role="presentation" class="{{name}}-item"><a role="menuitem" tabindex="-1" href="#" class="{{name}}-link">{{cat.name}}</a></li>
         {% endfor %}{% if has_input_field %}
         <li role="presentation" class="divider endoflist"></li>
         <li role="presentation">

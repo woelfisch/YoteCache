@@ -5,12 +5,15 @@
 <head lang="en">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title></title>
+    <title>PhotoYote</title>
     <link href="{% static 'jquery/jquery.mobile-1.4.5.min.css' %}" rel="stylesheet">
     <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'bootstrap/css/bootstrap-datetimepicker.min.css' %}" rel="stylesheet">
+    <script src="{% static 'js/moment.min.js' %}"></script>
     <script src="{% static 'jquery/jquery-2.1.3.min.js' %}"></script>
     <script src="{% static 'jquery/jquery.mobile-1.4.5.min.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap-datetimepicker.min.js' %}"></script>
 </head>
 <body>
 <style>
@@ -89,6 +92,8 @@
         if (idx >=  media_list.length) return media_list.length-1;
         return idx;
     }
+    
+    /* ===== set preview image ===== */
 
     function set_preview_image() {
         $.mobile.loading("show");
@@ -126,14 +131,16 @@
         $("#media-home").attr("href", "{% url 'index' %}#"+media_list[cur_media].id);
         {% endif %}
     }
-
+    
+    /* ===== helper functions for preview window ===== */
+    
     function exposure(tval) {
         if (tval < 1)
             return "1/"+(1/tval).toFixed(0);
         return tval.toFixed(0);
     }
 
-    function rating_stars_1(element, rating) {
+    function rating_stars_main(element, rating) {
         stars=$(element+" > .glyphicon");
         for (r=0; r < 5; r++) {
             if (r < rating) {
@@ -142,18 +149,6 @@
             } else {
                 $(stars[r]).removeClass("glyphicon-star");
                 $(stars[r]).addClass("glyphicon-star-empty");
-            }
-        }
-    }
-
-    function rating_stars_2(element, rating) {
-        stars=$(element+" > .glyphicon");
-        for (r=0; r < 5; r++) {
-            // $(stars[r]).removeClass("glyphicon-star-empty");
-            if (r < rating) {
-                $(stars[r]).addClass("glyphicon-star");
-            } else {
-                $(stars[r]).removeClass("glyphicon-star");
             }
         }
     }
@@ -192,7 +187,7 @@
         catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
 
         var new_element = $(
-        '<li role="presentation">'+
+        '<li role="presentation" class="'+name+'-item">'+
         '   <a role="menuitem" tabindex="-1" href="#" class="'+name+'-link">'+catalog+'</a>'+
         '</li>');
 
@@ -203,7 +198,24 @@
 
     function show_catalog_main(catalog) {
         amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
     }
+
+    /* ===== helper functions for filmstrip ===== */
+
+    function rating_stars_filmstrip(element, rating) {
+        stars=$(element+" > .glyphicon");
+        for (r=0; r < 5; r++) {
+            // $(stars[r]).removeClass("glyphicon-star-empty");
+            if (r < rating) {
+                $(stars[r]).addClass("glyphicon-star");
+            } else {
+                $(stars[r]).removeClass("glyphicon-star");
+            }
+        }
+    }
+
 
     function show_reject_filmstrip(id, rejected) {
         if (rejected) {
@@ -237,6 +249,44 @@
         return dt[0]+" "+dt[1].substr(0,5);
     }
 
+    /* ===== update preview and filmstrip ===== */
+
+    function set_rating() {
+        rating=$(this).attr("id").split("-").pop();
+        if (cur_media_meta_data.rating == rating)
+            rating--;
+        if (rating < 0)
+            rating=1;
+        rating_stars_main("#"+$(this).parent().attr("id"), rating);
+        cur_media_meta_data.rating = rating;
+        set_image_metadata({rating: rating});
+    }
+
+    function toggle_reject() {
+        new_state=!cur_media_meta_data.rejected
+        cur_media_meta_data.rejected = new_state;
+        show_reject_main(new_state);
+        set_image_metadata({rejected: new_state});
+    }
+
+    function set_label() {
+        var label=$(this).attr("id").split("-").pop();
+        show_label_main(label);
+        set_image_metadata({label: label});
+    }
+
+    function set_catalog() {
+        var catalog = sanitize_catalog($(this).text());
+        set_image_metadata({catalog: catalog});
+    }
+
+    function add_catalog(ev) {
+        var catalog = sanitize_catalog($(this).val());
+        $(this).val("");
+        $("#media-catalog").click();
+        set_image_metadata({catalog: catalog});
+    }
+
     function update_image_metadata(data) {
         $("#media-file").text(data.mediafile_path.split('/').pop());
         $("#media-date").text(display_timestamp(data.date));
@@ -245,22 +295,23 @@
         // $("#media-mime-type").text(data.mime_type);
         show_catalog_main(data.catalog);
         show_label_main(data.label);
-        rating_stars_1("#media-rating", data.rating);
+        rating_stars_main("#media-rating", data.rating);
         show_reject_main(data.rejected);
         $("#media-exposure").text(exposure(data.exposure_time)+" s");
         $("#media-f-number").text(data.f_number);
         $("#media-focal-length").text(data.focal_length+" mm");
         $("#media-gain").text(data.gain_value);
 
-        rating_stars_2("#stars-"+data.id, data.rating);
+        rating_stars_filmstrip("#stars-"+data.id, data.rating);
         show_reject_filmstrip(data.id, data.rejected);
         show_label_filmstrip(data.id, data.label);
         show_catalog_filmstrip(data.id, data.catalog);
         $.mobile.loading("hide");
     }
 
-    var cur_media_meta_data;
+    /* ===== get or set image data ===== */
 
+    var cur_media_meta_data;
     function set_image_metadata(values) {
         var data;
         if (values == undefined) {
@@ -289,6 +340,8 @@
         });
     }
 
+    /* ===== navigation ===== */
+
     function previous_image() {
         cur_media = verify_index(cur_media-1);
         set_preview_image();
@@ -297,42 +350,6 @@
     function next_image() {
         cur_media = verify_index(cur_media+1);
         set_preview_image();
-    }
-
-    function set_rating() {
-        rating=$(this).attr("id").split("-").pop();
-        if (cur_media_meta_data.rating == rating)
-            rating--;
-        if (rating < 0)
-            rating=1;
-        rating_stars_1("#"+$(this).parent().attr("id"), rating);
-        cur_media_meta_data.rating = rating;
-        set_image_metadata({rating: rating});
-    }
-
-    function toggle_reject() {
-        new_state=!cur_media_meta_data.rejected
-        cur_media_meta_data.rejected = new_state;
-        show_reject_main(new_state);
-        set_image_metadata({rejected: new_state});
-    }
-
-    function set_label() {
-        var label=$(this).attr("id").split("-").pop();
-        show_label_main(label);
-        set_image_metadata({label: label});
-    }
-
-    function set_catalog() {
-        var catalog = sanitize_catalog($(this).text());
-        set_image_metadata({catalog: catalog});
-    }
-
-    function add_catalog(ev) {
-        var catalog = sanitize_catalog($(this).val());
-        $(this).val("");
-        $("#media-catalog").click();
-        set_image_metadata({catalog: catalog});
     }
 
     var cur_highlight=0;
@@ -411,6 +428,28 @@
         }
     }
 
+    /* ===== bulk operations ===== */
+    
+    function bulk_condition_set_catalog() {
+        $(".bulk-condition-catalog-title").text($(this).text());
+    }
+    
+    function bulk_action_set_catalog() {
+        $(".bulk-action-catalog-title").text($(this).text());
+    }
+    
+    function bulk_action_add_catalog() {
+        var catalog = sanitize_catalog($(this).val());
+        $(this).val("");        
+        amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
+        amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
+        $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").click();
+        // $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").text("XXXXX");
+    }
+
+    /* ===== initializing ==== */
+
     var media_id=window.location.hash.substring(1);
     var cur_media = get_index_by_id(media_id);
     var csrftoken;
@@ -446,11 +485,33 @@
         $("#media-rating > span").on("click", set_rating);
         $("#media-reject").on("click", toggle_reject);
         $(".media-label-link").on("click", set_label);
-        $(".media-catalog-input").on("click", function(ev) {
+        
+        $(".media-catalog-input,.bulk-action-catalog-input").on("click", function(ev) {
             ev.stopPropagation();
         });
-        $(".media-catalog-input").on("change", add_catalog);
+    
         $(".media-catalog-link").on("click", set_catalog);
+        $(".media-catalog-input").on("change", add_catalog);
+        
+        $(".bulk-condition-catalog-link").on("click", bulk_condition_set_catalog);
+        $(".bulk-action-catalog-link").on("click", bulk_action_set_catalog);
+        $(".bulk-action-catalog-input").on("change", bulk_action_add_catalog);
+
+        $.fn.modal.Constructor.prototype.enforceFocus = function() {};
+
+        $("#bulk-condition-date-start").datetimepicker({
+            format: "YYYY-MM-DD HH:mm",
+            minDate: "{{first.date|date:'Y-m-d H:i'}}",
+            maxDate: "{{last.date|date:'Y-m-d H:i'}}",
+            defaultDate: "{{first.date|date:'Y-m-d H:i'}}"
+        });
+
+        $("#bulk-condition-date-end").datetimepicker({
+            format: "YYYY-MM-DD HH:mm",
+            minDate: "{{first.date|date:'Y-m-d H:i'}}",
+            maxDate: "{{last.date|date:'Y-m-d H:i'}}",
+            defaultDate: "{{last.date|date:'Y-m-d H:i'}}"
+        });
     });
 </script>
 <div class="page-lighttable">
@@ -500,7 +561,7 @@
         <div class="spacer"></div>
         {% dropdown_label name="media-label" has_icon=True %}
         <div class="spacer"></div>
-        {% dropdown_category name="media-catalog" has_input_field=1 has_icon=True %}
+        {% dropdown_catalog name="media-catalog" has_input_field=1 has_icon=True %}
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
             <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
             <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
@@ -567,94 +628,104 @@
                 <h4 class="modal-title">Bulk Action</h4>
             </div>
             <div class="modal-body">
-                <div class="row"><div class="col-xs-4">
-                <div class="dropdown bulk-attribute-dropdown">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-attribute" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-attribute-selected">Select </span>
+                <div class="row"><div class="col-xs-3">
+                <div class="dropdown bulk-condition-attribute-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-attribute" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-condition-attribute-selected">Select </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-asterisk"></span> All
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-star"></span> Rating
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-flag" style="color: grey"></span> Label
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Catalog
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-ok" style="color: green"></span> Published
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-calendar"></span> Timestamp
                         </a></li>
-
                     </ul>
                 </div>
-                </div><div class="col-xs-4">
-                <div class="dropdown bulk-rating-operator-dropdown">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-rating-operator" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-rating-operator-selected">matches </span>
+                </div><div class="col-xs-5">
+                <div class="dropdown bulk-condition-operator-rating-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-operator-rating" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-condition-operator-rating-selected">matches </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> = </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &ne; </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &ge; </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-rating-operator-link"> &le; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> = </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &ne; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &ge; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &le; </a></li>
                     </ul>
                 </div>
-                <div class="dropdown bulk-equal-operator-dropdown">
+                <div class="dropdown bulk-condition-operator-equal-dropdown">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-equal-operator" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-rating-operator-selected">matches </span>
+                        <span class="bulk-condition-operator-equal-selected">matches </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-equal-operator-link"> is </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-equal-operator-link"> is not </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link"> is </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link"> is not </a></li>
                     </ul>
                 </div>
+
+                <div class="form-group bulk-condition-date">
+                    <div class="input-group date" id="bulk-condition-date-start">
+                        <span class="input-group-addon"><span class="glyphicon glyphicon-chevron-right"></span></span>
+                        <input type="text" class="form-control" data-role="none">
+                    </div>
+                    <div class="input-group date" id="bulk-condition-date-end">
+                        <span class="input-group-addon"><span class="glyphicon glyphicon-chevron-left"></span></span>
+                        <input type="text" class="form-control" data-role="none">
+                    </div>
+                </div>
                 </div><div class="col-xs-4">
-                {% dropdown_rating name="bulk-rating-value" %}
-                {% dropdown_label name="bulk-label-value" %}
-                {% dropdown_category name="bulk-catalog-value" %}
+                {% dropdown_rating name="bulk-condition-rating" %}
+                {% dropdown_label name="bulk-condition-label" %}
+                {% dropdown_catalog name="bulk-condition-catalog" %}
                 </div></div>
                 <hr>
                 <div class="row"><div class="col-xs-4">
-                <div class="dropdown bulk-main-action-dropdown">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-main-action" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-main-action-selected">Action </span>
+                <div class="dropdown bulk-action-attribute-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-action-main" data-toggle="dropdown"  data-role="none">
+                        <span class="bulk-action-main-selected">Action </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
                             <span class="glyphicon glyphicon-star"></span> Set rating
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
                             <span class="glyphicon glyphicon-flag" style="color: grey"></span> Set label
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
                             <span class="glyphicon glyphicon-trash" style="color: red"></span> Reject
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-main-action-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
                             <span class="glyphicon glyphicon-ok" style="color: green"></span> Publish
                         </a></li>
                     </ul>
                 </div>
                 </div><div class="col-xs-4">
-                {% dropdown_rating name="bulk-rating-action" %}
-                {% dropdown_label name="bulk-label-action" %}
-                {% dropdown_category name="bulk-catalog-action" has_input_field=True %}
+                {% dropdown_rating name="bulk-action-rating" %}
+                {% dropdown_label name="bulk-action-label" %}
+                {% dropdown_catalog name="bulk-action-catalog" has_input_field=True %}
                 <div class="col-xs-4"></div>
                 </div>    
                 </div>

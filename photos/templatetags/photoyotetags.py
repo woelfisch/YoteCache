@@ -114,8 +114,8 @@ def star_rating(rating, **kwargs):
 
     return rv
 
-@register.inclusion_tag("photos/dropdown-category.html", takes_context=True)
-def dropdown_category(context, **kwargs):
+@register.inclusion_tag("photos/dropdown-catalog.html", takes_context=True)
+def dropdown_catalog(context, **kwargs):
     return {
         "catalog": context["catalog"],
         "catalog_list": context["catalog_list"],
