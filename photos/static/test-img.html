@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <link href="/static/jquery/jquery.mobile-1.4.5.min.css" rel="stylesheet">
+    <link href="/static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/static/jquery/jquery-2.1.3.min.js"></script>
+    <script src="/static/jquery/jquery.mobile-1.4.5.min.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.min.js"></script>
+</head>
+<body>
+<style>
+#img-template {
+    z-index: 0;
+}
+
+#img-preview {
+    z-index: 1;
+    position: absolute;
+    top: 0;
+}
+
+#img-template-2 {
+    opacity: 0;
+}
+
+.img-preview-container-2 {
+    background-size: auto;
+}
+
+</style>
+<script>
+    var images = ["/static/test/preview/IMG_7411.jpg",
+        "/static/test/preview/IMG_6864.jpg",
+        "/static/test/preview/MVI_7541.gif"];
+
+    $.fn.scaled_preview = function (template, callback) {
+        function resize_image(img, template) {
+            var img_x=parseFloat($(img).attr('size-x'));
+            var img_y=parseFloat($(img).attr('size-y'));
+            var template_width = $(template).width();
+            var template_height = $(template).height();
+
+            var dx = template_width - img_x;
+            var dy = template_height - img_y;
+
+            var scaled_x;
+            var scaled_y;
+
+            // image is same size (more or less)
+            if ((Math.abs(dx) < 2) && (Math.abs(dy) < 2)) {
+                scaled_x = template_width;
+                scaled_y = template_height;
+            } else
+            // image is larger
+            if ((dx < 0) || (dy < 0)) {
+                if (img_x > img_y) { // landscape
+                    scaled_x = template_width;
+                    scaled_y = template_width * img_y / img_x;
+                } else { // portrait
+                    scaled_y = template_height;
+                    scaled_x = template_height * img_x / img_y;
+                }
+            } else {
+                scaled_x = img_x;
+                scaled_y = img_y;
+            }
+
+            offset_x = Math.abs(template_width - scaled_x)/2; // + parseFloat($(img).attr('orig-left'));
+            offset_y = Math.abs(template_height - scaled_y)/2;
+
+            $(img).css({
+                width: scaled_x+"px",
+                height: scaled_y+"px",
+                top: offset_y+"px",
+                marginLeft: offset_x+"px"
+            });
+
+            if (callback) callback.call(this, {
+                template: [template_width, template_height],
+                img_size: [img_x, img_y],
+                scaled_to: [scaled_x, scaled_y]
+            });
+        }
+
+        function set_image_size(ev) {
+            $(this).attr('size-x', $(this).width());
+            $(this).attr('size-y', $(this).height());
+            resize_image(this, ev.data.template);
+        }
+
+        return this.each(function() {
+            $(window).on("load resize",
+                {img: this, template: template},
+                function(ev){resize_image(ev.data.img, ev.data.template);
+            });
+
+            $(this).on("load", {template: template}, set_image_size);
+        });
+    };
+
+
+    function update_status(stats) {
+        console.log(
+            stats.template[0], stats.template[1],
+            stats.img_size[0], stats.img_size[1],
+            stats.scaled_to[0], stats.scaled_to[1]
+        );
+
+        $("#template-size-x").text(stats.template[0]);
+        $("#template-size-y").text(stats.template[1]);
+        $("#img-size-x").text(stats.img_size[0]);
+        $("#img-size-y").text(stats.img_size[1]);
+        $("#scaled-x").text(stats.scaled_to[0]);
+        $("#scaled-y").text(stats.scaled_to[1]);
+    }
+
+    var cur_media=-1;
+    function load_image() {
+        if (++cur_media > images.length-1) cur_media=0;
+        $("#img-preview").css({width: '', height: '', display: 'none'});
+        $("#img-preview").attr("src", images[cur_media]);
+        $("#img-preview").css('display', 'inline');
+        $(".img-preview-container-2").css({
+            "background": "url('"+images[cur_media]+"') no-repeat center center",
+            "background-size": "contain"
+        });
+    }
+    $(document).ready(function(){
+        // $(window).on("load resize", update_image_size);
+        $("#img-preview").scaled_preview("#img-template", update_status);
+        load_image();
+        $("#img-preview").on("click", load_image);
+    });
+</script>
+<div class="row">
+    <div class="col-xs-12">
+        ...
+    </div>
+</div>
+<div class="row">
+    <div class="preview-container col-xs-9">
+        <div class="img-preview-container ">
+            <img id="img-template" class="img-responsive" src="/static/photos/images/photoyote-preview-canvas.png">
+            <img id="img-preview">
+        </div>
+    </div>
+    <div class="media-meta-data col-xs-3">
+        <div>Container: <span id="template-size-x"></span>,<span id="template-size-y"></span></div>
+        <div>Image: <span id="img-size-x"></span>,<span id="img-size-y"></span></div>
+        <div>Scaled: <span id="scaled-x"></span>,<span id="scaled-y"></span></div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xs-12">
+        <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum
+        </p>
+    </div>
+</div>
+<div class="row">
+    <div class="preview-container-2 col-xs-9">
+        <div class="img-preview-container-2">
+            <img id="img-template-2" class="img-responsive" src="/static/photos/images/photoyote-thumbnail-canvas.png">
+        </div>
+    </div>
+    <div class="media-meta-data-2 col-xs-3">
+        <div>Container: <span id="2-template-size-x"></span>,<span id="2-template-size-y"></span></div>
+        <div>Image: <span id="2-img-size-x"></span>,<span id="2-img-size-y"></span></div>
+        <div>Scaled: <span id="2-scaled-x"></span>,<span id="2-scaled-y"></span></div>
+    </div>
+</div>
+</body>
+</html>
