@@ -1,7 +1,7 @@
 <div class="dropdown {{name}}">
     <button class="btn btn-default dropdown-toggle" type="button" id="{{name}}" data-toggle="dropdown" data-role="none">
-        {% if has_icon %}<span class="glyphicon glyphicon-folder-open"></span>{% endif %}
-        <span class="{{name}}-title">{{catalog}}</span>
+        <span id="{{name}}-value-selected-icon" class="glyphicon glyphicon-folder-open {% if not has_icon %}hide{% endif %}"></span>
+        <span id="{{name}}-value-selected" class="{{name}}-title">{{catalog}}</span>
         <span class="caret"></span>
     </button>
     <ul class="dropdown-menu" role="menu">

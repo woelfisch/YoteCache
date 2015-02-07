@@ -216,7 +216,6 @@
         }
     }
 
-
     function show_reject_filmstrip(id, rejected) {
         if (rejected) {
             $("#reject-flag-"+id).css("display", "inline");
@@ -429,13 +428,196 @@
     }
 
     /* ===== bulk operations ===== */
-    
+
+    var bulk_operation_data = { };
+
+    function bulk_get_dropdown_value(node, selector) {
+        var this_class=$("span", node).attr("class");
+        var this_style=$("span", node).attr("style");
+        var this_text=$(node).text();
+
+        $(selector+"-selected-icon").attr("class", this_class).removeAttr("style").attr("style", this_style).show();
+        $(selector+"-selected").text(this_text);
+        return this_text.replace(/(^\s*)|(\s*$)|[\r\n]/g, "");
+    }
+
+    function bulk_action_value_hide() {
+        $(".bulk-action-rating").hide();
+        $(".bulk-action-label").hide();
+        $(".bulk-action-catalog").hide();
+        $("#bulk-submit").prop("disabled", true);
+    }
+
+    function bulk_action_attribute_hide() {
+        $("#bulk-action-attribute").prop("disabled", true);
+        $("#bulk-action-attribute-selected-icon").hide();
+        $("#bulk-action-attribute-selected").text("Action");
+        bulk_action_value_hide();
+    }
+
+    function bulk_condition_value_hide() {
+        $(".bulk-condition-rating").hide();
+        $(".bulk-condition-label").hide();
+        $(".bulk-condition-catalog").hide();
+        bulk_action_attribute_hide();
+    }
+
+    function bulk_condition_operator_hide() {
+        $(".bulk-condition-operator-rating").hide();
+        $(".bulk-condition-operator-equal").hide();
+        $(".bulk-condition-date").hide();
+        bulk_condition_value_hide();
+    }
+
+    function bulk_modal_open() {
+        bulk_condition_operator_hide();
+        $("#bulk-condition-attribute-selected-icon").hide();
+        $("#bulk-condition-attribute-selected").text("Select");
+        $("#bulk-action-modal").modal('show');
+    }
+
+    function bulk_condition_set_attribute() {
+        bulk_condition_operator_hide();
+
+        var flags = {"All": "all", "Rejected": "reject", "Published": "publish"};
+        bulk_operation_data.select = {};
+        bulk_operation_data.set = {};
+
+        var attribute = bulk_get_dropdown_value(this, "#bulk-condition-attribute");
+
+        if (attribute in flags) {
+            bulk_operation_data.select.item = flags[attribute];
+            $("#bulk-action-attribute").prop("disabled", false);
+        } else
+        if (attribute == "Rating") {
+            bulk_operation_data.select.item = "rating";
+            $("#bulk-condition-operator-rating-selected").text("compares");
+            $(".bulk-condition-operator-rating").show();
+            $("#bulk-condition-rating-selected").html("Rating");
+            $("#bulk-condition-rating").prop("disabled", true);
+            $(".bulk-condition-rating").show();
+        } else
+        if (attribute == "Label") {
+            bulk_operation_data.select.item = "label";
+            $("#bulk-condition-operator-equal-selected").text("matches");
+            $(".bulk-condition-operator-equal").show();
+            $("#bulk-condition-label-selected-icon").hide();
+            $("#bulk-condition-label-selected").text("Label");
+            $("#bulk-condition-label").prop("disabled", true);
+            $(".bulk-condition-label").show();
+        } else
+        if (attribute == "Catalog") {
+            bulk_operation_data.select.item = "catalog";
+            $("#bulk-condition-operator-equal-selected").text("matches");
+            $(".bulk-condition-operator-equal").show();
+            $("#bulk-condition-catalog-selected").text("{{catalog}}");
+            $("#bulk-condition-catalog").prop("disabled", true);
+            $(".bulk-condition-catalog").show();
+        } else
+        if (attribute == "Timestamp") {
+            bulk_operation_data.select.item = "date";
+            $(".bulk-condition-date").show();
+            bulk_operation_data.select.value = {};
+            bulk_condition_set_start_date();
+            bulk_condition_set_end_date();
+            $("#bulk-action-attribute").prop("disabled", false);
+        }
+    }
+
+    function bulk_condition_set_operator_rating() {
+        var rating_operator=bulk_get_dropdown_value(this, "#bulk-condition-operator-rating");
+        $("#bulk-condition-rating").prop("disabled", false);
+        bulk_operation_data.select.operator=rating_operator;
+    }
+
+    function bulk_condition_set_operator_equal() {
+        var equality_operator = bulk_get_dropdown_value(this, "#bulk-condition-operator-equal");
+        $(".bulk-condition-equal").show();
+        if (bulk_operation_data.select.item == "label") {
+            $("#bulk-condition-label").prop("disabled", false);
+        } else {
+            bulk_operation_data.select.value=$("#bulk-condition-catalog-selected").text();
+            $("#bulk-condition-catalog").prop("disabled", false);
+            $("#bulk-action-attribute").prop("disabled", false);
+        }
+
+        bulk_operation_data.select.operator=equality_operator;
+    }
+
+    function bulk_condition_set_rating() {
+        var rating=$(this).attr('id').split("-").pop();
+        $("#bulk-condition-rating-selected").html($(this).html());
+        bulk_operation_data.select.value = rating;
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
+    function bulk_condition_set_label() {
+        var label = bulk_get_dropdown_value(this, "#bulk-condition-label");
+        bulk_operation_data.select.value = label;
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
     function bulk_condition_set_catalog() {
-        $(".bulk-condition-catalog-title").text($(this).text());
+        var catalog=$(this).text()
+        $(".bulk-condition-catalog-title").text(catalog);
+        bulk_operation_data.select.value = catalog;
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
+    function bulk_condition_set_start_date() {
+        bulk_operation_data.select.value.start=$("#bulk-condition-date-start").data("DateTimePicker").date().format("YYYY-MM-DD HH:mm");
+    }
+
+    function bulk_condition_set_end_date() {
+        bulk_operation_data.select.value.end=$("#bulk-condition-date-end").data("DateTimePicker").date().format("YYYY-MM-DD HH:mm");
+    }
+
+    function bulk_action_set_attribute() {
+        bulk_action_value_hide();
+        bulk_operation_data.set = {}
+        var attribute = bulk_get_dropdown_value(this, "#bulk-action-attribute");
+
+        var flags = {"Reject": "reject", "Publish": "publish"};
+        if (attribute in flags) {
+            $("#bulk-submit").prop("disabled", false);
+            bulk_operation_data.set.item = flags[attribute];
+        } else
+        if (attribute == "Set rating") {
+            bulk_operation_data.set.item = "rating";
+            $("#bulk-action-rating-selected").html("Rating");
+            $(".bulk-action-rating").show();
+        } else
+        if (attribute == "Set label") {
+            bulk_operation_data.set.item = "label";
+            $("#bulk-action-label-selected-icon").hide();
+            $("#bulk-action-label-selected").text("Label");
+            $(".bulk-action-label").show();
+        } else
+        if (attribute == "Move to catalog") {
+            bulk_operation_data.set.item = "catalog";
+            $("#bulk-action-catalog-selected").text("{{catalog}}");
+            $(".bulk-action-catalog").show();
+        }
+    }
+
+    function bulk_action_set_rating() {
+        var rating=$(this).attr('id').split("-").pop();
+        $("#bulk-action-rating-selected").html($(this).html());
+        bulk_operation_data.set.value = rating;
+        $("#bulk-submit").prop("disabled", false);
+    }
+
+    function bulk_action_set_label() {
+        var label = bulk_get_dropdown_value(this, "#bulk-action-label");
+        bulk_operation_data.set.value = label;
+        $("#bulk-submit").prop("disabled", false);
     }
     
     function bulk_action_set_catalog() {
-        $(".bulk-action-catalog-title").text($(this).text());
+        var catalog=$(this).text();
+        bulk_operation_data.set.value = catalog;
+        $(".bulk-action-catalog-title").text(catalog);
+        $("#bulk-submit").prop("disabled", false);
     }
     
     function bulk_action_add_catalog() {
@@ -445,7 +627,12 @@
         amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
         amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
         $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").click();
-        // $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").text("XXXXX");
+    }
+
+    function bulk_submit() {
+        console.log(bulk_operation_data.select, bulk_operation_data.set);
+        // FIXME: insert AJAX call here
+        $("#bulk-action-modal").modal('hide');
     }
 
     /* ===== initializing ==== */
@@ -468,8 +655,6 @@
         $("#media-next").on("click", next_image);
         $("div.preview").on("swipeleft", next_image);
 
-        // $("div.preview").on("click", function() { $("#fullsize-popup").modal("show"); });
-        // $("#fullsize-popup").on("click", function() { $(this).modal("hide"); });
         $("div.image-preview-container").on("click", function() {
             $(".page-lighttable").hide();
             $(".page-image").show();
@@ -492,12 +677,23 @@
     
         $(".media-catalog-link").on("click", set_catalog);
         $(".media-catalog-input").on("change", add_catalog);
-        
+
+        $.fn.modal.Constructor.prototype.enforceFocus = function() {};
+        $("#media-bulk").on("click", bulk_modal_open);
+        $(".bulk-condition-attribute-link").on("click", bulk_condition_set_attribute);
+        $(".bulk-condition-operator-rating-link").on("click", bulk_condition_set_operator_rating);
+        $(".bulk-condition-operator-equal-link").on("click", bulk_condition_set_operator_equal);
+        $(".bulk-condition-rating-link").on("click", bulk_condition_set_rating);
+        $(".bulk-condition-label-link").on("click", bulk_condition_set_label);
         $(".bulk-condition-catalog-link").on("click", bulk_condition_set_catalog);
+
+        $(".bulk-action-attribute-link").on("click", bulk_action_set_attribute);
+        $(".bulk-action-rating-link").on("click", bulk_action_set_rating);
+        $(".bulk-action-label-link").on("click", bulk_action_set_label);
         $(".bulk-action-catalog-link").on("click", bulk_action_set_catalog);
         $(".bulk-action-catalog-input").on("change", bulk_action_add_catalog);
 
-        $.fn.modal.Constructor.prototype.enforceFocus = function() {};
+        $("#bulk-submit").on("click", bulk_submit);
 
         $("#bulk-condition-date-start").datetimepicker({
             format: "YYYY-MM-DD HH:mm",
@@ -505,6 +701,7 @@
             maxDate: "{{last.date|date:'Y-m-d H:i'}}",
             defaultDate: "{{first.date|date:'Y-m-d H:i'}}"
         });
+        $("#bulk-condition-date-start").on("dp.change", bulk_condition_set_start_date);
 
         $("#bulk-condition-date-end").datetimepicker({
             format: "YYYY-MM-DD HH:mm",
@@ -512,7 +709,9 @@
             maxDate: "{{last.date|date:'Y-m-d H:i'}}",
             defaultDate: "{{last.date|date:'Y-m-d H:i'}}"
         });
+        $("#bulk-condition-date-end").on("dp.change", bulk_condition_set_end_date);
     });
+
 </script>
 <div class="page-lighttable">
 <div class="preview row">
@@ -559,22 +758,25 @@
             <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
         </span></div>
         <div class="spacer"></div>
+
         {% dropdown_label name="media-label" has_icon=True %}
+
         <div class="spacer"></div>
+
         {% dropdown_catalog name="media-catalog" has_input_field=1 has_icon=True %}
+
         <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
             <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
-            <div id="media-rejected-true"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
+            <div id="media-rejected-true" style="display: none"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
         </button></div>
 
         <div class="spacer"></div>
 
         <div>
-            <button id="media-bulkaction" type="button" class="btn btn-default" data-toggle="modal" data-target="#bulk-action-modal" data-role="none">
-                <span class="glyphicon glyphicon-tasks"></span> Bulk Action
+            <button id="media-bulk" type="button" class="btn btn-default" data-toggle="modal" data-role="none">
+                <span class="glyphicon glyphicon-tasks"></span> Bulk Changes
             </button>
         </div>
-
     </div>
 </div>
 
@@ -631,7 +833,8 @@
                 <div class="row"><div class="col-xs-3">
                 <div class="dropdown bulk-condition-attribute-dropdown">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-attribute" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-condition-attribute-selected">Select </span>
+                        <span id="bulk-condition-attribute-selected-icon"></span>
+                        <span id="bulk-condition-attribute-selected">Select</span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
@@ -659,9 +862,9 @@
                     </ul>
                 </div>
                 </div><div class="col-xs-5">
-                <div class="dropdown bulk-condition-operator-rating-dropdown">
+                <div class="dropdown bulk-condition-operator-rating">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-operator-rating" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-condition-operator-rating-selected">matches </span>
+                        <span id="bulk-condition-operator-rating-selected">compares</span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
@@ -671,9 +874,9 @@
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &le; </a></li>
                     </ul>
                 </div>
-                <div class="dropdown bulk-condition-operator-equal-dropdown">
+                <div class="dropdown bulk-condition-operator-equal">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-equal-operator" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-condition-operator-equal-selected">matches </span>
+                        <span id="bulk-condition-operator-equal-selected">matches</span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
@@ -699,25 +902,26 @@
                 </div></div>
                 <hr>
                 <div class="row"><div class="col-xs-4">
-                <div class="dropdown bulk-action-attribute-dropdown">
-                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-action-main" data-toggle="dropdown"  data-role="none">
-                        <span class="bulk-action-main-selected">Action </span>
+                <div class="dropdown bulk-action-attribute">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-action-attribute" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-action-attribute-selected-icon"></span>
+                        <span id="bulk-action-attribute-selected">Action </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-star"></span> Set rating
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-flag" style="color: grey"></span> Set label
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-trash" style="color: red"></span> Reject
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-main-link">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-ok" style="color: green"></span> Publish
                         </a></li>
                     </ul>
@@ -732,9 +936,9 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal" data-role="none">
-                    <span class="glyphicon glyphicon-remove"> Close</span>
+                    <span class="glyphicon glyphicon-remove"> Cancel</span>
                 </button>
-                <button type="button" class="btn btn-primary" data-role="none">
+                <button type="button" id="bulk-submit" class="btn btn-primary" data-role="none">
                     <span class="glyphicon glyphicon-ok"> Commit</span>
                 </button>
             </div>

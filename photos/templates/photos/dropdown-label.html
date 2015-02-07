@@ -1,8 +1,9 @@
 <div class="dropdown {{name}}">
     <button class="btn btn-default dropdown-toggle" type="button" id="{{name}}" data-toggle="dropdown"
             data-role="none">
-        {% if has_icon %}<span class="glyphicon glyphicon-flag" style="color: grey"></span>{% endif %}
-        Label <span class="caret"></span>
+        <span id="{{name}}-selected-icon" class="glyphicon glyphicon-flag {%if not has_icon %}hide{% endif %}" style="color: grey"></span>
+        <span id="{{name}}-selected">Label</span>
+        <span class="caret"></span>
     </button>
     <ul class="dropdown-menu" role="menu">
         <li role="presentation">
