@@ -133,7 +133,12 @@
     }
     
     /* ===== helper functions for preview window ===== */
-    
+
+    function display_timestamp(date) {
+        dt=date.split("T");
+        return dt[0]+" "+dt[1].substr(0,5);
+    }
+
     function exposure(tval) {
         if (tval < 1)
             return "1/"+(1/tval).toFixed(0);
@@ -155,11 +160,11 @@
 
     function show_reject_main(rejected) {
         if (rejected) {
-            $("#media-rejected-true").css("display", "inline");
-            $("#media-rejected-false").css("display", "none");
+            $("#media-rejected-true").show();
+            $("#media-rejected-false").hide();
         } else {
-            $("#media-rejected-false").css("display", "inline");
-            $("#media-rejected-true").css("display", "none");
+            $("#media-rejected-false").show();
+            $("#media-rejected-true").hide();
         }
     }
 
@@ -202,10 +207,26 @@
         amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
     }
 
+    function update_metadata_main(data) {
+        $("#media-file").text(data.mediafile_path.split('/').pop());
+        $("#media-date").text(display_timestamp(data.date));
+
+        document.title="PhotoYote | "+$("#media-file").text()+" | "+$("#media-date").text()
+        // $("#media-mime-type").text(data.mime_type);
+        show_catalog_main(data.catalog);
+        show_label_main(data.label);
+        rating_stars_main("#media-rating", data.rating);
+        show_reject_main(data.rejected);
+        $("#media-exposure").text(exposure(data.exposure_time)+" s");
+        $("#media-f-number").text(data.f_number);
+        $("#media-focal-length").text(data.focal_length+" mm");
+        $("#media-gain").text(data.gain_value);
+    }
+
     /* ===== helper functions for filmstrip ===== */
 
-    function rating_stars_filmstrip(element, rating) {
-        stars=$(element+" > .glyphicon");
+    function rating_stars_filmstrip(id, rating) {
+        stars=$("#stars-"+id+" > .glyphicon");
         for (r=0; r < 5; r++) {
             // $(stars[r]).removeClass("glyphicon-star-empty");
             if (r < rating) {
@@ -218,19 +239,19 @@
 
     function show_reject_filmstrip(id, rejected) {
         if (rejected) {
-            $("#reject-flag-"+id).css("display", "inline");
+            $("#reject-flag-"+id).show();
             $("#slide-"+id+" > .thumbnail").addClass("tn-rejected");
         } else {
-            $("#reject-flag-"+id).css("display", "none");
+            $("#reject-flag-"+id).hide();
             $("#slide-"+id+" > .thumbnail").removeClass("tn-rejected");
         }
     }
 
     function show_label_filmstrip(id, label) {
         if (!label || label == "None") {
-            $("#media-label-flag-"+id).css("display", "none");
+            $("#media-label-flag-"+id).hide();
         } else {
-            $("#media-label-flag-"+id).css("display", "inline");
+            $("#media-label-flag-"+id).show();
             $("#media-label-flag-"+id+" > .glyphicon-flag").css("color", label);
         }
     }
@@ -238,14 +259,17 @@
     function show_catalog_filmstrip(id, catalog) {
         $("#media-catalog > span.media-catalog-title").text(catalog);
         if (catalog == "{{catalog}}")
-            $("#export-flag-"+id).css("display", "none");
+            $("#export-flag-"+id).hide();
         else
-            $("#export-flag-"+id).css("display", "inline");
+            $("#export-flag-"+id).show();
     }
 
-    function display_timestamp(date) {
-        dt=date.split("T");
-        return dt[0]+" "+dt[1].substr(0,5);
+    function update_metadata_filmstrip(data) {
+        var id=data.id;
+        rating_stars_filmstrip(id, data.rating);
+        show_reject_filmstrip(id, data.rejected);
+        show_label_filmstrip(id, data.label);
+        show_catalog_filmstrip(id, data.catalog);
     }
 
     /* ===== update preview and filmstrip ===== */
@@ -287,24 +311,8 @@
     }
 
     function update_image_metadata(data) {
-        $("#media-file").text(data.mediafile_path.split('/').pop());
-        $("#media-date").text(display_timestamp(data.date));
-
-        document.title="PhotoYote | "+$("#media-file").text()+" | "+$("#media-date").text()
-        // $("#media-mime-type").text(data.mime_type);
-        show_catalog_main(data.catalog);
-        show_label_main(data.label);
-        rating_stars_main("#media-rating", data.rating);
-        show_reject_main(data.rejected);
-        $("#media-exposure").text(exposure(data.exposure_time)+" s");
-        $("#media-f-number").text(data.f_number);
-        $("#media-focal-length").text(data.focal_length+" mm");
-        $("#media-gain").text(data.gain_value);
-
-        rating_stars_filmstrip("#stars-"+data.id, data.rating);
-        show_reject_filmstrip(data.id, data.rejected);
-        show_label_filmstrip(data.id, data.label);
-        show_catalog_filmstrip(data.id, data.catalog);
+        update_metadata_main(data);
+        update_metadata_filmstrip(data);
         $.mobile.loading("hide");
     }
 
