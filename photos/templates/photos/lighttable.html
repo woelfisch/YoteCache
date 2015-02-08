@@ -146,7 +146,7 @@
     }
 
     function rating_stars_main(element, rating) {
-        stars=$(element+" > .glyphicon");
+        var stars=$(element+" > .glyphicon");
         for (r=0; r < 5; r++) {
             if (r < rating) {
                 $(stars[r]).removeClass("glyphicon-star-empty");
@@ -226,7 +226,7 @@
     /* ===== helper functions for filmstrip ===== */
 
     function rating_stars_filmstrip(id, rating) {
-        stars=$("#stars-"+id+" > .glyphicon");
+        var stars=$("#stars-"+id+" > .glyphicon");
         for (r=0; r < 5; r++) {
             // $(stars[r]).removeClass("glyphicon-star-empty");
             if (r < rating) {
@@ -275,7 +275,7 @@
     /* ===== update preview and filmstrip ===== */
 
     function set_rating() {
-        rating=$(this).attr("id").split("-").pop();
+        var rating=$(this).data("rating");
         if (cur_media_meta_data.rating == rating)
             rating--;
         if (rating < 0)
@@ -286,14 +286,14 @@
     }
 
     function toggle_reject() {
-        new_state=!cur_media_meta_data.rejected
+        var new_state=!cur_media_meta_data.rejected
         cur_media_meta_data.rejected = new_state;
         show_reject_main(new_state);
         set_image_metadata({rejected: new_state});
     }
 
     function set_label() {
-        var label=$(this).attr("id").split("-").pop();
+        var label=$(this).data("label");
         show_label_main(label);
         set_image_metadata({label: label});
     }
@@ -533,13 +533,13 @@
     }
 
     function bulk_condition_set_operator_rating() {
-        var rating_operator=bulk_get_dropdown_value(this, "#bulk-condition-operator-rating");
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-rating");
         $("#bulk-condition-rating").prop("disabled", false);
-        bulk_operation_data.select.operator=rating_operator;
+        bulk_operation_data.select.operator=$(this).data("operator");
     }
 
     function bulk_condition_set_operator_equal() {
-        var equality_operator = bulk_get_dropdown_value(this, "#bulk-condition-operator-equal");
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-equal");
         $(".bulk-condition-equal").show();
         if (bulk_operation_data.select.item == "label") {
             $("#bulk-condition-label").prop("disabled", false);
@@ -549,19 +549,19 @@
             $("#bulk-action-attribute").prop("disabled", false);
         }
 
-        bulk_operation_data.select.operator=equality_operator;
+        bulk_operation_data.select.operator=$(this).data("operator");
     }
 
     function bulk_condition_set_rating() {
-        var rating=$(this).attr('id').split("-").pop();
+        var rating=$(this).data("rating");
         $("#bulk-condition-rating-selected").html($(this).html());
         bulk_operation_data.select.value = rating;
         $("#bulk-action-attribute").prop("disabled", false);
     }
 
     function bulk_condition_set_label() {
-        var label = bulk_get_dropdown_value(this, "#bulk-condition-label");
-        bulk_operation_data.select.value = label;
+        bulk_get_dropdown_value(this, "#bulk-condition-label");
+        bulk_operation_data.select.value = $(this).data("label");
         $("#bulk-action-attribute").prop("disabled", false);
     }
 
@@ -609,7 +609,7 @@
     }
 
     function bulk_action_set_rating() {
-        var rating=$(this).attr('id').split("-").pop();
+        var rating=$(this).data("rating");
         $("#bulk-action-rating-selected").html($(this).html());
         bulk_operation_data.set.value = rating;
         $("#bulk-submit").prop("disabled", false);
@@ -638,7 +638,7 @@
     }
 
     function bulk_submit() {
-        console.log(bulk_operation_data.select, bulk_operation_data.set);
+        console.log(JSON.stringify(bulk_operation_data));
         // FIXME: insert AJAX call here
         $("#bulk-action-modal").modal('hide');
     }
@@ -759,11 +759,11 @@
         <div class="spacer"></div>
 
         <div><span id="media-rating">
-            <span id="rating-1" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-2" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-3" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-4" class="glyphicon glyphicon-star-empty"></span>
-            <span id="rating-5" class="glyphicon glyphicon-star-empty"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="1"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="2"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="3"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="4"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="5"></span>
         </span></div>
         <div class="spacer"></div>
 
@@ -876,10 +876,10 @@
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> = </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &ne; </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &ge; </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link"> &le; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="eq"> = </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="ne"> &ne; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="ge"> &ge; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="le"> &le; </a></li>
                     </ul>
                 </div>
                 <div class="dropdown bulk-condition-operator-equal">
@@ -888,8 +888,8 @@
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link"> is </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link"> is not </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link" data-operator="eq"> is </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link" data-operator="ne"> is not </a></li>
                     </ul>
                 </div>
 
