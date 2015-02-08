@@ -1,7 +1,9 @@
 import re
+import json
+from datetime import datetime
 from django.views.decorators.csrf import requires_csrf_token
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseBadRequest
 from photos.models import Catalog, MediaFile
 from django.core import serializers
 
@@ -20,12 +22,20 @@ def index(request):
 def lighttable(request, catalog_id):
     catalog = get_object_or_404(Catalog, id=catalog_id)
     filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')
+
+    try:
+        media_first = filmstrip[0]
+        media_last = filmstrip[len(filmstrip)-1]
+    except:
+        media_first = None
+        media_last = None
+
     return render(request, 'photos/lighttable.html', {
         'catalog': catalog,
         'catalog_list': Catalog.objects.order_by('id'),
         'filmstrip': filmstrip,
-        'first': filmstrip[0],
-        'last': filmstrip[len(filmstrip)-1]})
+        'first': media_first,
+        'last': media_last})
 
 @requires_csrf_token
 def metadata(request, media_id=None):
@@ -56,3 +66,123 @@ def metadata(request, media_id=None):
 
     json = serializers.serialize('json', [media], use_natural_foreign_keys=True)
     return HttpResponse(content=json, content_type='application/json')
+
+@requires_csrf_token
+def bulk(request):
+    if not 'json' in request.POST:
+        return HttpResponseBadRequest('<p>Missing parameter in POST</p>')
+
+    try:
+        action = json.loads(request.POST['json'])
+    except:
+        return HttpResponseBadRequest('<p>Broken JSON</p>')
+    if not ('ids' in action and 'select' in action and 'set' in action):
+        return HttpResponseBadRequest('<p>Incomplete JSON</p>')
+
+    try:
+        item = action['select']['item']
+    except:
+        return HttpResponseBadRequest('<p>Select item missing</p>')
+
+    value = ''
+    op = ''
+
+    if item in ['rating', 'label', 'catalog', 'date']:
+        try:
+            value = action['select']['value']
+        except:
+            return HttpResponseBadRequest('<p>Select value missing</p>')
+
+        if item in ['rating', 'label', 'catalog']:
+            try:
+                op = action['select']['operator']
+            except:
+                return HttpResponseBadRequest('<p>Select operator missing</p>')
+
+    media_list = MediaFile.objects.filter(id__in=action['ids'])
+
+    if item == 'all':
+        pass
+    elif item == 'reject':
+        media_list = media_list.filter(rejected=True)
+    elif item == 'publish':
+        media_list = media_list.filter(rejected=False)
+    elif item == 'rating':
+        try:
+            value = int(value)
+        except:
+            return HttpResponseBadRequest('<p>Select rating value not a number</p>')
+
+        if op == 'eq':
+            media_list = media_list.filter(rating=value)
+        elif op == 'ne':
+            media_list = media_list.exclude(rating=value)
+        elif op == 'le':
+            media_list = media_list.filter(rating__lt=value)
+        elif op == 'ge':
+            media_list = media_list.filter(rating__gt=value)
+        else:
+            return HttpResponseBadRequest('<p>Wrong operator</p>')
+    elif item == 'label':
+        if op == 'eq':
+            media_list = media_list.filter(label=value)
+        else:
+            media_list = media_list.exclude(label=value)
+    elif item == 'catalog':
+        if op == 'eq':
+            media_list = media_list.filter(catalog__name=value)
+        else:
+            media_list = media_list.exclude(catalog__name=value)
+    elif item == 'date':
+        try:
+            dt_start = datetime.strptime(value['start']+':00', '%Y-%m-%d %H:%M:%S')
+            dt_end = datetime.strptime(value['end']+':59', '%Y-%m-%d %H:%M:%S')
+            if dt_start < dt_end:
+                media_list = media_list.filter(date__range=(dt_start, dt_end))
+            else:
+                media_list = media_list.filter(date__range=(dt_end, dt_start))
+        except:
+            return HttpResponseBadRequest('<p>Wrong or missing date strings</p>')
+    else:
+        return HttpResponseBadRequest('<p>Select action unsupported</p>')
+
+    try:
+        item = action['set']['item']
+    except:
+        HttpResponseBadRequest('<p>Item to set missing</p>')
+
+    if item in ['rating', 'label', 'catalog']:
+        try:
+            value = action['set']['value']
+            # keep this out of the loop
+            if item == 'catalog':
+                catalog_name=re.sub('[\\\\/]\s?', '', value)
+                (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
+                value = catalog
+        except:
+            return HttpResponseBadRequest('<p>Item to set missing or wrong</p>')
+
+    # media_list.update() won't call the model save functions, hence iterate over the list
+    for media in media_list:
+        if item == 'reject':
+            media.rejected = True
+        elif item == 'publish':
+            media.rejected = False
+        elif item == 'rating':
+            try:
+                rating = int(value)
+                media.rating = rating
+            except:
+                return HttpResponseBadRequest('<p>Rating value to set is not a number</p>')
+        elif item == 'label':
+            media.label = value
+        elif item == 'catalog':
+            media.catalog = value
+        else:
+            return HttpResponseBadRequest('<p>Set action unsupported</p>')
+
+        media.save()
+
+    response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
+    print response
+    return HttpResponse(content=response, content_type='application/json')

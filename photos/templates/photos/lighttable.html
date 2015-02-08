@@ -120,6 +120,11 @@
                 f_number: 8,
                 focal_length: 50,
             });
+        $("#media-rating").prop("disabled", true);
+        $("#media-label").prop("disabled", true);
+        $("#media-catalog").prop("disabled", true);
+        $("#media-reject").prop("disabled", true);
+        $("#media-bulk").prop("disabled", true);
         {% else %}
         $("#image-preview").css("background-image", "url("+media_list[cur_media].preview+")");
         $("#image-preview-next").attr("src", media_list[next_media].preview);
@@ -638,8 +643,42 @@
     }
 
     function bulk_submit() {
-        console.log(JSON.stringify(bulk_operation_data));
-        // FIXME: insert AJAX call here
+        $.mobile.loading("show");
+        bulk_operation_data.ids = [];
+        for (idx=0; idx < media_list.length; idx++)
+            bulk_operation_data.ids.push(media_list[idx].id);
+
+        // console.log(JSON.stringify(bulk_operation_data));
+
+        $.ajax({
+            url: "{% url 'bulk' %}",
+            type: "POST",
+            data: $.param({"csrfmiddlewaretoken":  csrftoken,  "json": JSON.stringify(bulk_operation_data)}),
+            dataType: "json",
+            success: function(json) {
+                if (json.length < 1) {
+                    $.mobile.loading("hide");
+                    return;
+                }
+
+                for (idx=0; idx < json.length; idx++) {
+                    var data=json[idx].fields;
+                    data["id"]=json[idx].pk;
+                    update_metadata_filmstrip(data);
+                    if (data["id"] == cur_media_meta_data["id"]) {
+                        cur_media_meta_data = data;
+                        update_metadata_main(data);
+                    }
+                }
+                $.mobile.loading("hide");
+            },
+            error: function(xhr, status, errorThrown) {
+                console.log("Error: "+errorThrown);
+                console.log("Status: "+status);
+                console.dir( xhr);
+                $.mobile.loading("hide");
+            }
+        });
         $("#bulk-action-modal").modal('hide');
     }
 
@@ -801,7 +840,7 @@
                     <div>{{media.date|date:'Y-m-d H:i'}}</div>
 
                     <div><span id="stars-{{media.id}}">
-                        {% star-rating media.rating spacing=True %}
+                        {% star-rating media.rating spacing=True fillup=3 %}
                     </span></div>
 
                     <div><span id="reject-flag-{{media.id}}" {% if not media.rejected %}style="display: none"{%endif%}>
@@ -853,7 +892,7 @@
                             <span class="glyphicon glyphicon-star"></span> Rating
                         </a></li>
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
-                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> Label
+                            <span class="glyphicon glyphicon-flag"></span> Label
                         </a></li>
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Catalog

@@ -76,6 +76,18 @@ def static_image(what):
 
 @register.simple_tag(name='star-rating')
 def star_rating(rating, **kwargs):
+    '''
+    :param rating: rating of the image
+    :param kwargs:
+        fillup:
+            0: just # of rating stars,
+            1: fillup with empty stars,
+            2: one star if rating = 0,
+            3: fillup with empty <span>
+        spacing:
+            add space between stars
+    :return:
+    '''
     spacing = 'spacing' in kwargs
 
     if 'fillup' in kwargs:
