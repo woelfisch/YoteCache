@@ -364,6 +364,16 @@
         set_preview_image();
     }
 
+    function first_image() {
+        cur_media = verify_index(0);
+        set_preview_image();
+    }
+
+    function last_image() {
+        cur_media = verify_index(media_list.length-1);
+        set_preview_image();
+    }
+
     var cur_highlight=0;
     var strip_first=0;
 
@@ -459,6 +469,7 @@
         $(".bulk-action-label").hide();
         $(".bulk-action-catalog").hide();
         $("#bulk-submit").prop("disabled", true);
+        $("#bulk-cancel").prop("disabled", false);
     }
 
     function bulk_action_attribute_hide() {
@@ -478,6 +489,7 @@
     function bulk_condition_operator_hide() {
         $(".bulk-condition-operator-rating").hide();
         $(".bulk-condition-operator-equal").hide();
+        $(".bulk-condition-operator-range").hide();
         $(".bulk-condition-date").hide();
         bulk_condition_value_hide();
     }
@@ -504,31 +516,42 @@
         } else
         if (attribute == "Rating") {
             bulk_operation_data.select.item = "rating";
-            $("#bulk-condition-operator-rating-selected").text("compares");
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-rating-selected").text(" = ");
+            $("#bulk-condition-operator-rating-selected").data("operator", bulk_operation_data.select.operator);
             $(".bulk-condition-operator-rating").show();
             $("#bulk-condition-rating-selected").html("Rating");
-            $("#bulk-condition-rating").prop("disabled", true);
+            $("#bulk-condition-rating").prop("disabled", false);
             $(".bulk-condition-rating").show();
         } else
         if (attribute == "Label") {
             bulk_operation_data.select.item = "label";
-            $("#bulk-condition-operator-equal-selected").text("matches");
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-equal-selected").text(" is ");
+            $("#bulk-condition-operator-equal-selected").data("operator", bulk_operation_data.select.operator);
             $(".bulk-condition-operator-equal").show();
             $("#bulk-condition-label-selected-icon").hide();
             $("#bulk-condition-label-selected").text("Label");
-            $("#bulk-condition-label").prop("disabled", true);
+            $("#bulk-condition-label").prop("disabled", false);
             $(".bulk-condition-label").show();
         } else
         if (attribute == "Catalog") {
             bulk_operation_data.select.item = "catalog";
-            $("#bulk-condition-operator-equal-selected").text("matches");
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-equal-selected").text(" is ");
+            $("#bulk-condition-operator-equal-selected").data("operator", bulk_operation_data.select.operator);
             $(".bulk-condition-operator-equal").show();
             $("#bulk-condition-catalog-selected").text("{{catalog}}");
-            $("#bulk-condition-catalog").prop("disabled", true);
+            $("#bulk-condition-catalog").prop("disabled", false);
+            $("#bulk-action-attribute").prop("disabled", false);
             $(".bulk-condition-catalog").show();
         } else
         if (attribute == "Timestamp") {
             bulk_operation_data.select.item = "date";
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-range-selected").text(" between ");
+            $("#bulk-condition-operator-range-selected").data("operator", bulk_operation_data.select.operator);
+            $(".bulk-condition-operator-range").show();
             $(".bulk-condition-date").show();
             bulk_operation_data.select.value = {};
             bulk_condition_set_start_date();
@@ -554,6 +577,12 @@
             $("#bulk-action-attribute").prop("disabled", false);
         }
 
+        bulk_operation_data.select.operator=$(this).data("operator");
+    }
+
+    function bulk_condition_set_operator_range() {
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-range");
+        $("#bulk-condition-range").prop("disabled", false);
         bulk_operation_data.select.operator=$(this).data("operator");
     }
 
@@ -607,8 +636,10 @@
             $(".bulk-action-label").show();
         } else
         if (attribute == "Move to catalog") {
+            $("#bulk-submit").prop("disabled", false);
             bulk_operation_data.set.item = "catalog";
-            $("#bulk-action-catalog-selected").text("{{catalog}}");
+            bulk_operation_data.set.value = "{{catalog}}";
+            $("#bulk-action-catalog-selected").text(bulk_operation_data.set.value);
             $(".bulk-action-catalog").show();
         }
     }
@@ -697,6 +728,9 @@
         setup_filmstrip();
         $(".image-center-overlay").on("dragstart", function() { return false; });
 
+        $("#media-prev").on("taphold", first_image);
+        $("#media-next").on("taphold", last_image);
+
         $("#media-prev").on("click", previous_image);
         $("div.preview").on("swiperight", previous_image);
         $("#media-next").on("click", next_image);
@@ -730,6 +764,7 @@
         $(".bulk-condition-attribute-link").on("click", bulk_condition_set_attribute);
         $(".bulk-condition-operator-rating-link").on("click", bulk_condition_set_operator_rating);
         $(".bulk-condition-operator-equal-link").on("click", bulk_condition_set_operator_equal);
+        $(".bulk-condition-operator-range-link").on("click", bulk_condition_set_operator_range);
         $(".bulk-condition-rating-link").on("click", bulk_condition_set_rating);
         $(".bulk-condition-label-link").on("click", bulk_condition_set_label);
         $(".bulk-condition-catalog-link").on("click", bulk_condition_set_catalog);
@@ -908,10 +943,10 @@
                         </a></li>
                     </ul>
                 </div>
-                </div><div class="col-xs-5">
+                </div><div class="col-xs-2">
                 <div class="dropdown bulk-condition-operator-rating">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-operator-rating" data-toggle="dropdown"  data-role="none">
-                        <span id="bulk-condition-operator-rating-selected">compares</span>
+                        <span id="bulk-condition-operator-rating-selected" data-operator="eq"> = </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
@@ -923,7 +958,7 @@
                 </div>
                 <div class="dropdown bulk-condition-operator-equal">
                     <button class="btn btn-default dropdown-toggle" type="button" id="bulk-equal-operator" data-toggle="dropdown"  data-role="none">
-                        <span id="bulk-condition-operator-equal-selected">matches</span>
+                        <span id="bulk-condition-operator-equal-selected" data-operator="eq"> is </span>
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
@@ -931,7 +966,21 @@
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link" data-operator="ne"> is not </a></li>
                     </ul>
                 </div>
-
+                    
+                <div class="dropdown bulk-condition-operator-range">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-range-operator" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-condition-operator-range-selected" data-operator="eq"> between </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-range-link" data-operator="eq"> between </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-range-link" data-operator="ne"> outside </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-5">
+                {% dropdown_rating name="bulk-condition-rating" %}
+                {% dropdown_label name="bulk-condition-label" %}
+                {% dropdown_catalog name="bulk-condition-catalog" %}
                 <div class="form-group bulk-condition-date">
                     <div class="input-group date" id="bulk-condition-date-start">
                         <span class="input-group-addon"><span class="glyphicon glyphicon-chevron-right"></span></span>
@@ -942,11 +991,8 @@
                         <input type="text" class="form-control" data-role="none">
                     </div>
                 </div>
-                </div><div class="col-xs-4">
-                {% dropdown_rating name="bulk-condition-rating" %}
-                {% dropdown_label name="bulk-condition-label" %}
-                {% dropdown_catalog name="bulk-condition-catalog" %}
-                </div></div>
+                </div><div class="col-xs-2"></div>
+                </div>
                 <hr>
                 <div class="row"><div class="col-xs-4">
                 <div class="dropdown bulk-action-attribute">
@@ -960,7 +1006,7 @@
                             <span class="glyphicon glyphicon-star"></span> Set rating
                         </a></li>
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
-                            <span class="glyphicon glyphicon-flag" style="color: grey"></span> Set label
+                            <span class="glyphicon glyphicon-flag"></span> Set label
                         </a></li>
                         <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
@@ -982,7 +1028,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal" data-role="none">
+                <button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-cancel" data-role="none">
                     <span class="glyphicon glyphicon-remove"> Cancel</span>
                 </button>
                 <button type="button" id="bulk-submit" class="btn btn-primary" data-role="none">

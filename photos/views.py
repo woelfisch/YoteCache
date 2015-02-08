@@ -93,7 +93,7 @@ def bulk(request):
         except:
             return HttpResponseBadRequest('<p>Select value missing</p>')
 
-        if item in ['rating', 'label', 'catalog']:
+        if item in ['rating', 'label', 'catalog', 'date']:
             try:
                 op = action['select']['operator']
             except:
@@ -118,9 +118,9 @@ def bulk(request):
         elif op == 'ne':
             media_list = media_list.exclude(rating=value)
         elif op == 'le':
-            media_list = media_list.filter(rating__lt=value)
+            media_list = media_list.filter(rating__lt=value+1)
         elif op == 'ge':
-            media_list = media_list.filter(rating__gt=value)
+            media_list = media_list.filter(rating__gt=value-1)
         else:
             return HttpResponseBadRequest('<p>Wrong operator</p>')
     elif item == 'label':
@@ -138,9 +138,14 @@ def bulk(request):
             dt_start = datetime.strptime(value['start']+':00', '%Y-%m-%d %H:%M:%S')
             dt_end = datetime.strptime(value['end']+':59', '%Y-%m-%d %H:%M:%S')
             if dt_start < dt_end:
-                media_list = media_list.filter(date__range=(dt_start, dt_end))
+                dt_range = (dt_start, dt_end)
             else:
-                media_list = media_list.filter(date__range=(dt_end, dt_start))
+                dt_range = (dt_end, dt_start)
+
+            if op == 'eq':
+                media_list = media_list.filter(date__range=dt_range)
+            else:
+                media_list = media_list.exclude(date__range=dt_range)
         except:
             return HttpResponseBadRequest('<p>Wrong or missing date strings</p>')
     else:
