@@ -15,6 +15,35 @@
     <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
 </head>
 <body>
+<h1>PhotoYote</h1>
+<div id="card-copy-status" class="alert alert-info">
+    <div>Copying media to disk</div>
+    <div id="card-copy-progress" class="progress">
+        <div class="progress-bar" role="progressbar" style="width: 10%">
+            <span class="sr-only">10%</span>
+        </div>
+    </div>
+    <div id="card-copy-show-file">
+        <span id="card-copy-file">img_2149.cr2</span>
+    </div>
+    <div id="card-copy-show-text">
+        <span id="card-copy-text" class="hide">Done</span>
+    </div>
+</div>
+<div id="photo-import-status" class="alert alert-info">
+    <div>Importing media</div>
+    <div id="photo-import-progress" class="progress">
+        <div class="progress-bar" role="progressbar" style="width: 20%">
+            <span class="sr-only">20%</span>
+        </div>
+    </div>
+    <div id="photo-import-show-file">
+        <span id="photo-import-directory">EOS_DIGI-DEAD-BEEF</span>/<span id="photo-import-file">img_2149.cr2</span>
+    </div>
+    <div id="photo-import-show-text" class="hide">
+        <span id="photo-import-text">img_2149.cr2</span>
+    </div>
+</div>
 
 {% for catalog, media_list in all_media_list %}
 <h2><a href="{% url 'lighttable' catalog.id %}" data-ajax="false">{{catalog}}</a></h2>
