@@ -1,10 +1,10 @@
 import re
 import json
 from datetime import datetime
-from django.views.decorators.csrf import requires_csrf_token
+from django.views.decorators.csrf import requires_csrf_token, csrf_exempt
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseBadRequest
-from photos.models import Catalog, MediaFile
+from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
 
 # Create your views here.
@@ -189,5 +189,9 @@ def bulk(request):
         media.save()
 
     response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
-    print response
     return HttpResponse(content=response, content_type='application/json')
+
+@csrf_exempt
+def status(request):
+    json = serializers.serialize('json', ProgressStatus.objects.all())
+    return HttpResponse(content=json, content_type='application/json')

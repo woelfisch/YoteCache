@@ -159,7 +159,7 @@ class Command(BaseCommand):
         :return:None
         '''
 
-        self.status=StatusWriter(statusfilename=settings.IMPORT_STATUS,
+        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
                                  dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
                                  text='Start')
 

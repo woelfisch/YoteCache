@@ -92,9 +92,15 @@ WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP 
 EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
 THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
 PREVIEW_DIR = 'preview/'
-STATUS_DIR = WEB_DIR+'status/'
-IMPORT_STATUS = 'import.json'
-PROCESS_STATUS = 'process.json'
+
+STATUS_USE_FILE = False
+if STATUS_USE_FILE:
+    STATUS_DIR = WEB_DIR+'status/'
+    IMPORT_STATUS = 'import.json'
+    PROCESS_STATUS = 'process.json'
+else:
+    IMPORT_STATUS = 'import'
+    PROCESS_STATUS = 'process'
 
 THUMBNAIL_UNAVAILABLE = 'photos/images/photoyote-thumbnail-unavailable.png'
 PREVIEW_UNAVAILABLE = 'photos/images/photoyote-preview-unavailable.png'

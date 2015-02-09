@@ -1,5 +1,6 @@
 from django.conf import settings
 from tools import toolbox
+from photos.models import ProgressStatus
 import os
 import logging
 import json
@@ -7,20 +8,25 @@ import json
 class StatusWriter:
     filename = None
     dirname = None
-    statusfilename = None
+    statusname = None
     total_items = 1
     items = 0
+    status = None   # ProgressStatus instances
 
-    def __init__(self, statusfilename, filename=None, dirname=None, text=None):
-        if not os.path.isdir(settings.STATUS_DIR):
-            toolbox.mkdir(settings.STATUS_DIR)
+    def __init__(self, statusname, filename=None, dirname=None, text=None):
+        if settings.STATUS_USE_FILE:
+            if not os.path.isdir(settings.STATUS_DIR):
+                toolbox.mkdir(settings.STATUS_DIR)
+        else:
+            ProgressStatus.objects.get_or_create(name=statusname)
+            self.status = ProgressStatus.objects.filter(name=statusname)
 
-        self.statusfilename = statusfilename
+        self.statusname = statusname
 
-        if self.filename:
+        if filename:
             self.filename = os.path.basename(filename)
 
-        if self.dirname:
+        if dirname:
             self.dirname = dirname
 
         self.update(progress=0, text=text)
@@ -56,9 +62,17 @@ class StatusWriter:
         self.write_status({'running': False})
 
     def write_status(self, statusdict):
-        try:
-            fd=open(settings.STATUS_DIR+self.statusfilename, mode='w')
-            json.dump(statusdict, fd)
-            fd.close()
-        except Exception as e:
-            raise e
+        if settings.STATUS_USE_FILE:
+            try:
+                fd=open(settings.STATUS_DIR+self.statusname, mode='w')
+                json.dump(statusdict, fd)
+                fd.close()
+            except Exception as e:
+                raise e
+        else:
+            try:
+                self.status.update(**statusdict)
+            except Exception as e:
+                print("{}".format(e.message))
+                raise e
+

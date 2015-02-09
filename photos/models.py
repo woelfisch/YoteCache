@@ -191,3 +191,25 @@ class MediaFile(models.Model):
         exif.set_tag_string('Xmp.xmp.Label', self.label.__str__())
         exif.set_tag_string('Xmp.xmp.Rating', self.rating.__str__())
         exif.save_file(xmpfile)
+
+class ProgressStatus(models.Model):
+    name = models.CharField(max_length=32, unique=True, help_text="Name of this status")
+    running = models.BooleanField(default=False, help_text="Operation running")
+    text = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Text associated with the status")
+    progress = models.IntegerField(default=0, help_text="Progress in percent")
+    total_items = models.BigIntegerField(default=0, help_text="Total number of items")
+    current_item = models.BigIntegerField(default=0, help_text="Current item number")
+    filename = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Filename operating on")
+    directory = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Directory operating on")
+
+    def __init__(self, *args, **kwargs):
+        super(ProgressStatus, self).__init__(*args, **kwargs)
+
+    def __str__(self):
+        if self.running:
+            return "{} running at {}%".format(self.name, self.progress)
+        else:
+            return "{} not running"
+
+    def natural_key(self):
+        return self.name

@@ -7,4 +7,5 @@ urlpatterns = patterns('',
                        url(r'^data/(?P<media_id>\d+)', views.metadata),
                        url(r'^data/', views.metadata, name='metadata'),
                        url(r'^bulk/', views.bulk, name='bulk'),
+                       url(r'^status/', views.status, name='status'),
                        )
