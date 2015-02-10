@@ -47,7 +47,7 @@
                     $("#photo-process-dismiss").show();
                 } else {
                     $('#photo-process-status').removeClass("alert-info").addClass("alert-success");
-                    process_timer_id = window.setTimeout(clear_process_status, 10000);
+                    $("#photo-process-reload").show();
                 }
                 $("#photo-process-file").hide();
             }
@@ -144,6 +144,7 @@
 
     $(document).ready(function(){
         $("#photo-process-dismiss").on("click", clear_process_status);
+        $("#photo-process-reload").on("click", function() { document.location.reload(true); });
         $("#card-copy-dismiss").on("click", clear_copy_status);
         get_status();
     });
@@ -188,6 +189,11 @@
     <div id="photo-process-dismiss" class="pull-right" style="display: none">
         <button type="button" class="btn btn-default"  data-role="none">
             <span class="glyphicon glyphicon-remove"> Dismiss</span>
+        </button>
+    </div>
+    <div id="photo-process-reload" class="pull-right" style="display: none">
+        <button type="button" class="btn btn-default"  data-role="none">
+            <span class="glyphicon glyphicon-refresh"> Reload</span>
         </button>
     </div>
 </div>
