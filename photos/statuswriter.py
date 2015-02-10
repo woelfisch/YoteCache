@@ -1,9 +1,11 @@
-from django.conf import settings
-from tools import toolbox
-from photos.models import ProgressStatus
 import os
 import logging
 import json
+from datetime import timedelta
+from django.conf import settings
+from django.utils import timezone
+from tools import toolbox
+from photos.models import ProgressStatus
 
 class StatusWriter:
     filename = None
@@ -62,6 +64,7 @@ class StatusWriter:
         self.write_status({'running': False})
 
     def write_status(self, statusdict):
+        statusdict['timestamp'] = timezone.now()
         if settings.STATUS_USE_FILE:
             try:
                 fd=open(settings.STATUS_DIR+self.statusname, mode='w')

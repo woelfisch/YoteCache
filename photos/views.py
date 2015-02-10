@@ -1,9 +1,10 @@
 import re
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.views.decorators.csrf import requires_csrf_token, csrf_exempt
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseBadRequest
+from django.utils import timezone
 from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
 
@@ -135,8 +136,8 @@ def bulk(request):
             media_list = media_list.exclude(catalog__name=value)
     elif item == 'date':
         try:
-            dt_start = datetime.strptime(value['start']+':00', '%Y-%m-%d %H:%M:%S')
-            dt_end = datetime.strptime(value['end']+':59', '%Y-%m-%d %H:%M:%S')
+            dt_start = timezone.make_aware(datetime.strptime(value['start']+':00', '%Y-%m-%d %H:%M:%S'), timezone.utc)
+            dt_end = timezone.make_aware(datetime.strptime(value['end']+':59', '%Y-%m-%d %H:%M:%S'), timezone.utc)
             if dt_start < dt_end:
                 dt_range = (dt_start, dt_end)
             else:
@@ -193,5 +194,10 @@ def bulk(request):
 
 @csrf_exempt
 def status(request):
+    for s in ProgressStatus.objects.filter(running=True):
+        if s.timestamp + timedelta(seconds = 450) < timezone.now():
+            s.timestamp = timezone.now()
+            s.running = False
+            s.save()
     json = serializers.serialize('json', ProgressStatus.objects.all())
     return HttpResponse(content=json, content_type='application/json')

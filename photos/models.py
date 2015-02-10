@@ -1,8 +1,10 @@
 import os
 import os.path
 import logging
+from datetime import datetime
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from model_utils import FieldTracker
 from tools import toolbox
 from gi.repository import GExiv2
@@ -201,6 +203,7 @@ class ProgressStatus(models.Model):
     current_item = models.BigIntegerField(default=0, help_text="Current item number")
     filename = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Filename operating on")
     directory = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Directory operating on")
+    timestamp = models.DateTimeField(default=timezone.now())
 
     def __init__(self, *args, **kwargs):
         super(ProgressStatus, self).__init__(*args, **kwargs)
