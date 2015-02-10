@@ -358,7 +358,7 @@ class Command(BaseCommand):
         self.status.update(100, 'Done')
 
     def do_import(self, sourcefullpath):
-        self.status=StatusWriter(statusname=settings.IMPORT_STATUS, filename=sourcefullpath, text='Start')
+        self.status=StatusWriter(statusname=settings.PROCESS_STATUS, filename=sourcefullpath, text='Start')
         sourcefullpath = os.path.abspath(sourcefullpath)
         if not sourcefullpath.startswith(settings.SOURCE_DIR):
             logging.critical('{} is not below directory {}'.format(sourcefullpath, settings.SOURCE_DIR))
@@ -398,10 +398,10 @@ class Command(BaseCommand):
 
         # sidecar gets handled explicitly by exporter
         if extension == '.xmp':
+            self.status.update(100, 'Done')
             return
 
         self.import_other(sourcefullpath, sourcerelpath)
-        self.status.close()
 
 
     def handle(self, *args, **options):

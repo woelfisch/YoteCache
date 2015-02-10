@@ -15,34 +15,122 @@
     <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
 </head>
 <body>
+<script>
+    var import_running = false;
+    var import_timer_id = -1;
+
+    var process_running = false;
+    var process_timer_id = -1;
+
+    function clear_process_status() {
+        $('#photo-process-status').hide();
+        $('#photo-process-status').removeClass("alert-success alert-danger").addClass("alert-info");
+        process_timer_id = -1;
+    }
+
+    function update_process_status(fields) {
+        if (fields.running && !process_running) {
+            if (process_timer_id != -1) {
+                window.clearTimeout(process_timer_id);
+                process_timer_id = -1;
+            }
+            $('#photo-process-status').removeClass("alert-success alert-danger").addClass("alert-info");
+            $('#photo-process-status').show();
+            $("#photo-process-file").show();
+            process_running = true;
+        } else
+        if (!fields.running && process_running) {
+            if (process_timer_id == -1) {
+                if (fields.text.substr(0,5) == "Error") {
+                    $('#photo-process-status').removeClass("alert-info").addClass("alert-danger");
+                    process_timer_id = window.setTimeout(clear_process_status, 20000); // should actually use a button
+                } else {
+                    $('#photo-process-status').removeClass("alert-info").addClass("alert-success");
+                    process_timer_id = window.setTimeout(clear_process_status, 10000);
+                }
+                $("#photo-process-file").hide();
+            }
+            process_running = false;
+        }
+
+        if (fields.running) {
+            $("#photo-process-progress > .progress-bar").css("width", fields.progress+"%");
+            $("#photo-process-file").text(fields.filename);
+            $("#photo-process-text").text(fields.text);
+        } else {
+            $("#photo-process-progress > .progress-bar").css("width", fields.progress+"%");
+            $("#photo-process-text").text(fields.text);
+        }
+    }
+
+    function update_import_status(fields) {
+
+    }
+
+    function get_status() {
+        $.ajax({
+            url: "{% url 'status' %}",
+            type: "GET",
+            dataType: "json",
+            timeout: 1000,
+            success: function(json) {
+                var tval = 1000;
+                for (idx=0; idx < json.length; idx++) {
+                    var fields=json[idx].fields;
+                    if (fields.name == 'import') {
+                        update_import_status(fields);
+                        if (import_running) tval = 500;
+                    } else
+                    if (fields.name == 'process') {
+                        update_process_status(fields);
+                        if (process_running) tval = 500;
+                    }
+                }
+                window.setTimeout(get_status, tval);
+            },
+            error: function(xhr, status, errorThrown) {
+                var tval = 1000;
+                if (status != "timeout") {
+                    console.log("Error: "+errorThrown);
+                    console.log("Status: "+status);
+                    console.dir( xhr);
+                    tval = 10000;
+                }
+                window.setTimeout(get_status, tval);
+            }
+        });
+    }
+
+    $(document).ready(function(){
+        get_status();
+    });
+</script>
 <h1>PhotoYote</h1>
-<div id="card-copy-status" class="alert alert-info">
-    <div>Copying media to disk</div>
-    <div id="card-copy-progress" class="progress">
-        <div class="progress-bar" role="progressbar" style="width: 10%">
-            <span class="sr-only">10%</span>
-        </div>
-    </div>
-    <div id="card-copy-show-file">
-        <span id="card-copy-file">img_2149.cr2</span>
-    </div>
-    <div id="card-copy-show-text">
-        <span id="card-copy-text" class="hide">Done</span>
-    </div>
-</div>
-<div id="photo-import-status" class="alert alert-info">
+<div id="card-copy-status" class="alert alert-info" style="display: none">
     <div>Importing media</div>
-    <div id="photo-import-progress" class="progress">
-        <div class="progress-bar" role="progressbar" style="width: 20%">
-            <span class="sr-only">20%</span>
+    <div id="card-copy-progress" class="progress">
+        <div class="progress-bar" role="progressbar">
         </div>
     </div>
-    <div id="photo-import-show-file">
-        <span id="photo-import-directory">EOS_DIGI-DEAD-BEEF</span>/<span id="photo-import-file">img_2149.cr2</span>
+    <span id="card-copy-show-file">
+        <span id="photo-copy-directory">EOS_DIGITAL-DEAD-BEEF</span>/<span id="photo-copy-file">img_2149.cr2</span>
+    </span>
+    <span id="card-copy-show-text">
+        <span id="card-copy-text">Done</span>
+    </span>
+</div>
+<div id="photo-process-status" class="alert alert-info" style="display: none">
+    <div>Processing media</div>
+    <div id="photo-process-progress" class="progress">
+        <div class="progress-bar" role="progressbar">
+        </div>
     </div>
-    <div id="photo-import-show-text" class="hide">
-        <span id="photo-import-text">img_2149.cr2</span>
-    </div>
+    <span id="photo-process-show-file">
+        <span id="photo-process-file">img_2149.cr2</span>
+    </span>
+    <span id="photo-process-show-text">
+        <span id="photo-process-text"></span>
+    </span>
 </div>
 
 {% for catalog, media_list in all_media_list %}
