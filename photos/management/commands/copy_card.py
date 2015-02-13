@@ -16,6 +16,10 @@ from photos.tools import toolbox
 from photos.statuswriter import StatusWriter
 
 class GenericCopyFramework(object):
+    def sanitze_filename(self, name):
+        # not sure if gphoto2 guarantees safe filenames, better safe than sorry.
+        return re.sub('[\s/\\\\:]', '_', name)
+
     def get_mtime(self, path):
         try:
             timestruct = tz.time.gmtime(int(os.path.getmtime(path)))
@@ -41,7 +45,7 @@ class GenericCopyFramework(object):
             path = dir + '/{:04d}-{}'.format(count, fn)
             count += 1
             # goddammit robin!
-            # DCIM allows a maximum of 9999 files per directory
+            # DCIM allows a maximum of 9999 files per folder
             # the outer loops allows 10000 name collissions
             # if the inner loop keeps colliding, too, something is terribly wrong.
             while count > 9999 and os.path.isfile(path):
@@ -53,12 +57,14 @@ class GenericCopyFramework(object):
         self.status.update_filecopy(name)
 
         # needs to print path of imported file to console to pipe into import_photo
-        destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_directory)
+        destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_folder)
+        if not os.path.abspath(destpath).startswith(self.importbase+'/'):
+            logging.error('How cute, a symlink attack: {}'.format(name))
+            return None
 
-        # FIXME: check_if_same_file expects two filenames, but destpath is just a directory
         if self.check_if_same_file(name, destpath):
             logging.debug('Files {} and {} are the same'.format(name, destpath))
-            return
+            return None
 
         logging.info('Copying file {}'.format(name))
 
@@ -82,6 +88,7 @@ class GenericCopyFramework(object):
         basenames = filelist.keys()
         basenames.sort()
 
+        self.status.update(text=' ')
         for name in basenames:
             extensions = filelist[name]
             remaining = []
@@ -93,6 +100,7 @@ class GenericCopyFramework(object):
             for e in remaining:
                 self.copy_file(name + e)
 
+        self.status.update(text='Done')
         self.status.close()
 
 
@@ -122,7 +130,7 @@ class CopyFlash(GenericCopyFramework):
     # destination stuff
 
     def mk_dirname(self):
-        (timestruct, valid) = self.get_mtime(self.dcim_directory)
+        (timestruct, valid) = self.get_mtime(self.dcim_folder)
         return tz.time.strftime("%Y-%m-%d", timestruct)
 
     # copy stuff
@@ -136,15 +144,14 @@ class CopyFlash(GenericCopyFramework):
         if not valid:
             return False
 
-        # FAT timestamps have a resolution of 2 seconds.
         dt = datetime(*mtime_dest[:6]) - datetime(*mtime_src[:6])
-        return abs(dt.total_seconds()) < 4
+        return abs(dt.total_seconds()) < 2
 
     def get_file_list(self):
         filelist = {}
         filenumber = 0
 
-        for root, dirs, files in os.walk(self.dcim_directory):
+        for root, dirs, files in os.walk(self.dcim_folder):
             root_basename=os.path.basename(root)
             if root_basename[:3].isdigit():
                 filenumber+=len(files)
@@ -161,6 +168,8 @@ class CopyFlash(GenericCopyFramework):
 
     def copy_file(self, name):
         destpath = super(CopyFlash, self).copy_file(name)
+        if not destpath:
+            return None
 
         try:
             check_call(['/bin/cp', '-p', name, destpath])
@@ -168,25 +177,23 @@ class CopyFlash(GenericCopyFramework):
             logging.error('copy_file: ', exc_info=True)
             pass
 
-        print destpath
+        print(destpath)
+        sys.stdout.flush()
         return destpath
 
-    def __init__(self, card_directory, card_device):
-        if not card_directory:
+    def __init__(self, card_folder, card_device):
+        if not card_folder:
             raise CommandError('Missing mount point parameter')
         if not card_device:
             raise CommandError('Missing device node parameter')
 
         self.card_device=card_device
-        self.dcim_directory=card_directory+'/DCIM'
+        self.dcim_folder=card_folder+'/DCIM'
         self.status=StatusWriter(settings.IMPORT_STATUS)
         self.importbase=settings.SOURCE_DIR+self.get_card_info()
 
 
 class CopyPTP(GenericCopyFramework):
-    def sanitze_filename(self, name):
-        # not sure if gphoto2 guarantees safe filenames, better safe than sorry.
-        return re.sub('[\s/\\\\:]', '_', name)
 
     def get_camera_info(self):
         self.stores = []
@@ -210,27 +217,30 @@ class CopyPTP(GenericCopyFramework):
         if not valid:
             return False
 
-        #(mtime_src, valid) = self.get_mtime(source)
-        #if not valid:
-        #    return False
+        folder, filename = os.path.split(source)
+        try:
+            file_info = self.camera.file_get_info(folder, filename, self.context)
+        except gp.GPhoto2Error as e:
+            return False
 
-        # FAT timestamps have a resolution of 2 seconds.
-        # dt = datetime(*mtime_dest[:6]) - datetime(*mtime_src[:6])
-        # return abs(dt.total_seconds()) < 4
+        mtime_src = tz.time.gmtime(int(file_info.file.mtime))
+        if mtime_src.tm_year < 2000:
+            return False
 
-        return False
+        dt = datetime(*mtime_dest[:6]) - datetime(*mtime_src[:6])
+        return abs(dt.total_seconds()) < 2
 
     def get_file_list(self):
         filelist = {}
         filenumber = 0
 
-        # print self.importbase, self.dcim_directory
-        for directory, value in self.camera.folder_list_folders(self.dcim_directory, self.context):
-            if directory[:3].isdigit() or directory.lower() == 'camera':
-                files = self.camera.folder_list_files(self.dcim_directory+'/'+directory, self.context)
+        # print self.importbase, self.dcim_folder
+        for folder, value in self.camera.folder_list_folders(self.dcim_folder, self.context):
+            if folder[:3].isdigit() or folder.lower() == 'camera':
+                files = self.camera.folder_list_files(self.dcim_folder+'/'+folder, self.context)
                 filenumber+=len(files)
                 for f, v in files:
-                    name, ext = os.path.splitext(self.dcim_directory + '/' + directory + '/' + f)
+                    name, ext = os.path.splitext(self.dcim_folder + '/' + folder + '/' + f)
                     if name not in filelist:
                         filelist[name] = [ext]
                     else:
@@ -242,14 +252,25 @@ class CopyPTP(GenericCopyFramework):
 
     def copy_file(self, name):
         destpath = super(CopyPTP, self).copy_file(name)
+        if not destpath:
+            return None
 
-        print destpath
+        # hurrdurrderp
+        folder, filename = os.path.split(name)
+        try:
+            the_file = self.camera.file_get(folder, filename, gp.GP_FILE_TYPE_NORMAL, self.context)
+            the_file.save(destpath)
+        except gp.GPhoto2Error as e:
+            logging.warning("Cannot copy {} to {}: {}".format(filename, destpath, e.string))
+
+        print(destpath)
+        sys.stdout.flush()
         return destpath
 
     def copy(self):
-        for directory, import_base in self.stores:
+        for folder, import_base in self.stores:
             self.importbase = settings.SOURCE_DIR+import_base
-            self.dcim_directory = directory+'/DCIM'
+            self.dcim_folder = folder+'/DCIM'
             super(CopyPTP, self).copy()
 
 
@@ -267,7 +288,7 @@ class Command(BaseCommand):
     """
     option_list = BaseCommand.option_list + (
         make_option('-m', '--mountpoint',
-                    dest='card_directory',
+                    dest='card_folder',
                     default=os.getenv('UM_MOUNTPOINT'),
                     help='Mount point of media card'),
         make_option('-d', '--device',
@@ -288,7 +309,7 @@ class Command(BaseCommand):
             if options['ptp_mode']:
                 obj=CopyPTP()
             else:
-                obj=CopyFlash(options['card_directory'], options['card_device'])
+                obj=CopyFlash(options['card_folder'], options['card_device'])
 
             obj.copy()
         except:

@@ -79,7 +79,7 @@
             }
             $('#card-copy-status').removeClass("alert-success alert-danger").addClass("alert-info");
             $('#card-copy-status').show();
-            $("#card-copy-file").show();
+            $("#card-copy-show-file").show();
             copy_running = true;
         } else
         if (!fields.running && copy_running) {
@@ -91,14 +91,14 @@
                     $('#card-copy-status').removeClass("alert-info").addClass("alert-success");
                     copy_timer_id = window.setTimeout(clear_copy_status, 10000);
                 }
-                $("#card-copy-file").hide();
+                $("#card-copy-show-file").hide();
             }
             copy_running = false;
         }
 
         if (fields.running) {
             $("#card-copy-progress > .progress-bar").css("width", fields.progress+"%");
-            $("#card-copy-file").text(fields.filename);
+            $("#photo-copy-file").text(fields.filename);
             $("#card-copy-text").text(fields.text);
             $("#card-copy-current-item").text(fields.current_item);
             $("#card-copy-total-items").text(fields.total_items);
@@ -163,7 +163,7 @@
         </div>
     </div>
     <span id="card-copy-show-file">
-        <span id="photo-copy-directory">EOS_DIGITAL-DEAD-BEEF</span>/<span id="photo-copy-file">img_2149.cr2</span>
+        <span id="photo-copy-file">img_2149.cr2</span>
     </span>
     <span id="card-copy-show-text">
         <span id="card-copy-text">Done</span>
