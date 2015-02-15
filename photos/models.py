@@ -39,10 +39,6 @@ class Catalog(models.Model):
         toolbox.mkdir(self.get_path())
 
     def delete(self, *args, **kwargs):
-        uncataloged, created=Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)
-        for mediafile in MediaFile.objects.filter(catalog=self):
-            mediafile.catalog=uncataloged
-            mediafile.save()
         try:
             os.rmdir(self.get_path())
         except Exception as e:
@@ -52,6 +48,10 @@ class Catalog(models.Model):
 
     def get_path(self):
         return settings.EXPORT_DIR+self.name+'/'
+
+    @staticmethod
+    def default_catalog():
+        return Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)[0]
 
 class MimeTypeManager(models.Manager):
     def get_by_natural_key(self, mime_type):
@@ -70,17 +70,15 @@ class MimeType(models.Model):
     def natural_key(self):
         return self.type
 
-    def delete(self, *args, **kwargs):
-        unknowntype, created = MimeType.objects.get_or_create(type=settings.UNKOWN_MIME_TYPE)
-        for mediafile in MediaFile.objects.filter(mime_type = self.type):
-            mediafile.mime_type=unknowntype
-        super(MimeType, self).delete(*args, **kwargs)
+    @staticmethod
+    def default_type():
+        return MimeType.objects.get_or_create(type=settings.UNKOWN_MIME_TYPE)[0]
 
 class MediaFile(models.Model):
     mediafile_path = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Path to original file')
     sidecar_path = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text='Path to sidecar file')
     filename = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Filename for export')
-    mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file')
+    mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file', on_delete=models.SET(MimeType.default_type))
 
     date = models.DateTimeField(help_text='Creation date of the file')
     exposure_time = models.FloatField(blank=True, null=True, help_text='Exposure Time as a fraction')
@@ -88,7 +86,7 @@ class MediaFile(models.Model):
     gain_value = models.FloatField(blank=True, null=True, help_text='ISO speed or gain')
     focal_length = models.FloatField(blank=True, null=True, help_text='Focal length')
 
-    catalog = models.ForeignKey(Catalog, help_text='Catalog for this file')
+    catalog = models.ForeignKey(Catalog, help_text='Catalog for this file', on_delete=models.SET(Catalog.default_catalog))
     rating = models.PositiveSmallIntegerField(default=0, blank=True, help_text='Star rating 0-5')
     label = models.CharField(default='None', blank=True, max_length=16, choices=LABELS, help_text='Color label')
     rejected = models.BooleanField(default=False, help_text='Do not export this file')

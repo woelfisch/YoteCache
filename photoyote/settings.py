@@ -69,19 +69,23 @@ DATABASES = {
 # https://docs.djangoproject.com/en/1.7/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
+
+try:
+    from local_settings import *
+except ImportError:
+    try:
+        from photoyote.local_settings import *
+    except:
+        pass
 
 WWWUSER = toolbox.www_user()
 WWWGROUP = toolbox.www_group()
@@ -146,16 +150,3 @@ elif toolbox.is_in_path('ffmpeg'):
     FFMPEG_EXTRA=[]
 else:
     FFMPEG_COMMAND=None
-
-
-
-"""
- <rdf:Description rdf:about='' xmlns:xmp='http://ns.adobe.com/xap/1.0/'>
-  <xmp:CreateDate>2014-02-26T16:39:52</xmp:CreateDate>
-  <xmp:CreatorTool>Adobe Photoshop Lightroom 4.4 (Windows)</xmp:CreatorTool>
-  <xmp:Label>Rot</xmp:Label>
-  <xmp:MetadataDate>2014-06-02T22:57:08Z</xmp:MetadataDate>
-  <xmp:ModifyDate>2014-06-02T22:57:08</xmp:ModifyDate>
-  <xmp:Rating>3</xmp:Rating>
- </rdf:Description>
-"""
