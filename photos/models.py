@@ -23,7 +23,7 @@ class CatalogManager(models.Manager):
         return self.get(catalog=catalog)
 
 class Catalog(models.Model):
-    name = models.CharField(max_length=256, unique=True, help_text='Name of the catalog')
+    name = models.CharField(max_length=255, unique=True, help_text='Name of the catalog')
     publish = models.BooleanField(default=True, help_text='Make catalog available to other services')
 
     objects = CatalogManager()
@@ -58,7 +58,7 @@ class MimeTypeManager(models.Manager):
         return self.get(mime_type=mime_type)
 
 class MimeType(models.Model):
-    type = models.CharField(max_length=256, unique=True, help_text='MIME type')
+    type = models.CharField(max_length=255, unique=True, help_text='MIME type')
     hide = models.BooleanField(default=False, help_text='Hide this type of content in frontend')
     copy = models.BooleanField(default=True, help_text='Export this type of content')
 
