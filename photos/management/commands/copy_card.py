@@ -3,8 +3,9 @@ import re
 import sys
 import os
 import os.path
+import time
 import logging
-import gphoto2 as gp
+import gphoto2 as gp    # that's gphoto2-cffi, not the SWIG based one!
 
 from subprocess import check_output, check_call
 from dateutil import tz
@@ -52,58 +53,6 @@ class GenericCopyFramework(object):
                 path = dir + '/{}-{}'.format(base64.urlsafe_b64encode(uuid4().bytes)[:10], fn)
 
         return path
-
-    def copy_file(self, name):
-        self.status.update_filecopy(name)
-
-        # needs to print path of imported file to console to pipe into import_photo
-        destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_folder)
-        if not os.path.abspath(destpath).startswith(self.importbase+'/'):
-            logging.error('How cute, a symlink attack: {}'.format(name))
-            return None
-
-        if self.check_if_same_file(name, destpath):
-            logging.debug('Files {} and {} are the same'.format(name, destpath))
-            return None
-
-        logging.info('Copying file {}'.format(name))
-
-        destpath=self.mk_unique_name(destpath)
-        destdir=os.path.dirname(destpath)
-        toolbox.mkdir(destdir)
-
-        return destpath
-
-    def copy(self):
-        '''
-        Copies metadata before actual content for import_photo to have it available
-        :return:None
-        '''
-
-        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
-                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
-                                 text='Start')
-
-        filelist = self.get_file_list()
-        basenames = filelist.keys()
-        basenames.sort()
-
-        self.status.update(text=' ')
-        for name in basenames:
-            extensions = filelist[name]
-            remaining = []
-            for e in extensions:
-                if e.lower() in settings.METADATA_EXTENSIONS:
-                    self.copy_file(name + e)
-                    continue
-                remaining.append(e)
-            for e in remaining:
-                self.copy_file(name + e)
-
-        self.status.update(text='Done')
-        self.status.close()
-
-
 
 class CopyFlash(GenericCopyFramework):
     # source stuff
@@ -167,9 +116,20 @@ class CopyFlash(GenericCopyFramework):
         return filelist
 
     def copy_file(self, name):
-        destpath = super(CopyFlash, self).copy_file(name)
-        if not destpath:
-            return None
+        self.status.update_filecopy(name)
+
+        # needs to print path of imported file to console to pipe into import_photo
+        destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_folder)
+
+        if self.check_if_same_file(name, destpath):
+            logging.debug('Files {} and {} are the same'.format(name, destpath))
+            return
+
+        logging.info('Copying file {}'.format(name))
+
+        destpath=self.mk_unique_name(destpath)
+        destdir=os.path.dirname(destpath)
+        toolbox.mkdir(destdir)
 
         try:
             check_call(['/bin/cp', '-p', name, destpath])
@@ -179,7 +139,35 @@ class CopyFlash(GenericCopyFramework):
 
         print(destpath)
         sys.stdout.flush()
-        return destpath
+
+    def copy(self):
+        '''
+        Copies metadata before actual content for import_photo to have it available
+        :return:None
+        '''
+
+        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
+                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
+                                 text='Start')
+
+        filelist = self.get_file_list()
+        basenames = filelist.keys()
+        basenames.sort()
+
+        self.status.update(text=' ')
+        for name in basenames:
+            extensions = filelist[name]
+            remaining = []
+            for e in extensions:
+                if e.lower() in settings.METADATA_EXTENSIONS:
+                    self.copy_file(name + e)
+                    continue
+                remaining.append(e)
+            for e in remaining:
+                self.copy_file(name + e)
+
+        self.status.update(text='Done')
+        self.status.close()
 
     def __init__(self, card_folder, card_device):
         if not card_folder:
@@ -194,89 +182,135 @@ class CopyFlash(GenericCopyFramework):
 
 
 class CopyPTP(GenericCopyFramework):
+    '''
+        gphoto2-cffi operates on object representations instead of (virtual) path names, so we have to
+        replicate all the crap from above again without being able to reuse much of it. OOP my arse.
+    '''
 
     def get_camera_info(self):
         self.stores = []
-        manufacturer = 'OEM'
-        model = 'Camera'
-        serial_number = '0000000000000042'
-        summary = self.camera.get_summary(self.context).text
-        for t in summary.splitlines():
-            if t.startswith('Manufacturer:'):
-                manufacturer = self.sanitze_filename(t[14:])
-            if t.startswith('Model:'):
-                model = self.sanitze_filename(t[7:])
-            if t.startswith('  Serial Number:'):
-                serial_number = self.sanitze_filename(t[17:])
-            if t.startswith('store_') and t[-1] == ':':
-                # store_%08x is generated by gphoto2, thus safe.
-                self.stores.append(('/'+t[:-1], '-'.join((model, serial_number, t[6:-1]))))
+        try:
+            manufacturer = self.sanitze_filename(self.camera.status.manufacturer)
+        except:
+            manufacturer = 'OEM'
+
+        try:
+            model = self.sanitze_filename(self.camera.status.cameramodel)
+        except:
+            model = 'Camera'
+
+        try:
+            serial_number = self.sanitze_filename(self.camera.status.serialnumber)
+        except:
+            serial_number = '00000042'
+
+        for volume in self.camera.storage_info:
+            self.stores.append((volume.directory, '-'.join((model, serial_number, volume.directory.path[7:]))))
+
 
     def check_if_same_file(self, source, destination):
         (mtime_dest, valid) = self.get_mtime(destination)
         if not valid:
             return False
 
-        folder, filename = os.path.split(source)
+
+        mtime_src = source.last_modified
+        if mtime_src.year < 2000:
+            return False
+
+        dt = datetime(*mtime_dest[:6]) - mtime_src
+        if abs(dt.total_seconds()) > 1:
+            return False
+
         try:
-            file_info = self.camera.file_get_info(folder, filename, self.context)
-        except gp.GPhoto2Error as e:
+            s1 = os.path.getsize(destination)
+            s2 = source.size
+            return s2 == s1
+        except:
             return False
 
-        mtime_src = tz.time.gmtime(int(file_info.file.mtime))
-        if mtime_src.tm_year < 2000:
-            return False
-
-        dt = datetime(*mtime_dest[:6]) - datetime(*mtime_src[:6])
-        return abs(dt.total_seconds()) < 2
-
-    def get_file_list(self):
+    def get_file_list(self, base_folder):
         filelist = {}
         filenumber = 0
 
-        # print self.importbase, self.dcim_folder
-        for folder, value in self.camera.folder_list_folders(self.dcim_folder, self.context):
-            if folder[:3].isdigit() or folder.lower() == 'camera':
-                files = self.camera.folder_list_files(self.dcim_folder+'/'+folder, self.context)
-                filenumber+=len(files)
-                for f, v in files:
-                    name, ext = os.path.splitext(self.dcim_folder + '/' + folder + '/' + f)
+        print base_folder.name
+
+        for folder in base_folder.directories:
+            folder_name = os.path.basename(folder.path)
+            if folder_name[:3].isdigit() or folder_name.lower() == 'camera':
+                filenumber+=len(tuple(folder.files))
+                for f in folder.files:
+                    name, ext = os.path.splitext(f.name)
                     if name not in filelist:
-                        filelist[name] = [ext]
+                        filelist[name] = [f]
                     else:
-                        filelist[name].append(ext)
+                        filelist[name].append(f)
 
         self.status.total_items = filenumber
         logging.debug('get_file_list(): found {} files to copy'.format(filenumber))
         return filelist
 
-    def copy_file(self, name):
-        destpath = super(CopyPTP, self).copy_file(name)
-        if not destpath:
-            return None
+    def copy_file(self, import_base, file_obj):
+        name = file_obj.name
+        path = file_obj.directory.path
+        self.status.update_filecopy(name)
 
-        # hurrdurrderp
-        folder, filename = os.path.split(name)
+        destpath = '/'.join((import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name)))
+
+        if self.check_if_same_file(file_obj, destpath):
+            logging.debug('Files {} and {} are the same'.format(name, destpath))
+            return
+
+        logging.info('Copying file {}'.format(name))
+
+        destpath=self.mk_unique_name(destpath)
+        destdir=os.path.dirname(destpath)
+        toolbox.mkdir(destdir)
+
         try:
-            the_file = self.camera.file_get(folder, filename, gp.GP_FILE_TYPE_NORMAL, self.context)
-            the_file.save(destpath)
-        except gp.GPhoto2Error as e:
-            logging.warning("Cannot copy {} to {}: {}".format(filename, destpath, e.string))
+            file_obj.save(destpath)
+            mtime = time.mktime(file_obj.last_modified.timetuple())
+            os.utime(destpath, (mtime, mtime))
+        except Exception as e:
+            logging.warning("Cannot copy {} to {}: {}".format(name, destpath, e.message))
 
         print(destpath)
         sys.stdout.flush()
-        return destpath
+
+
+    def copy_volume(self, import_base, folder):
+        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
+                                 dirname=os.path.relpath(import_base, settings.SOURCE_DIR),
+                                 text='Start')
+
+        filelist = self.get_file_list(folder)
+        basenames = filelist.keys()
+        basenames.sort()
+
+        self.status.update(text=' ')
+        for name in basenames:
+            file_obj = filelist[name]
+            remaining = []
+            for f in file_obj:
+                if os.path.splitext(f.name)[1].lower() in settings.METADATA_EXTENSIONS:
+                    self.copy_file(import_base, f)
+                    continue
+                remaining.append(f)
+            for f in remaining:
+                self.copy_file(import_base, f)
+
+        self.status.update(text='Done')
+        self.status.close()
 
     def copy(self):
         for folder, import_base in self.stores:
-            self.importbase = settings.SOURCE_DIR+import_base
-            self.dcim_folder = folder+'/DCIM'
-            super(CopyPTP, self).copy()
+            for dcim_candidate in folder.directories:
+                if dcim_candidate.path.endswith('/DCIM'):
+                    self.copy_volume(settings.SOURCE_DIR+import_base, dcim_candidate)
 
 
     def __init__(self):
         self.status=StatusWriter(settings.IMPORT_STATUS)
-        self.context = gp.Context()
         self.camera = gp.Camera()
         self.get_camera_info()
 
