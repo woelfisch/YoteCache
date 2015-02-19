@@ -37,12 +37,18 @@ class GenericCopyFramework(object):
         # 32 bit of random data should be enough to avoid collisions
         return '{:04X}-{:04X}'.format(uuid[1], uuid[2])
 
-    def mk_unique_name(self, path):
+    def check_if_same_file(self, source, dest):
+        return False
+
+    def mk_unique_name(self, source, path):
         dir = os.path.dirname(path)
         fn = os.path.basename(path)
         count = 1
 
         while os.path.isfile(path):
+            if self.check_if_same_file(source, path):
+                return None
+
             path = dir + '/{:04d}-{}'.format(count, fn)
             count += 1
             # goddammit robin!
@@ -51,6 +57,8 @@ class GenericCopyFramework(object):
             # if the inner loop keeps colliding, too, something is terribly wrong.
             while count > 9999 and os.path.isfile(path):
                 path = dir + '/{}-{}'.format(base64.urlsafe_b64encode(uuid4().bytes)[:10], fn)
+                if self.check_if_same_file(source, path):
+                    return None
 
         return path
 
@@ -119,17 +127,15 @@ class CopyFlash(GenericCopyFramework):
         self.status.update_filecopy(name)
 
         # needs to print path of imported file to console to pipe into import_photo
-        destpath=self.importbase+'/'+os.path.relpath(name, self.dcim_folder)
-
-        if self.check_if_same_file(name, destpath):
+        destpath=self.mk_unique_name(name, self.importbase+'/'+os.path.relpath(name, self.dcim_folder))
+        if not destpath:
             logging.debug('Files {} and {} are the same'.format(name, destpath))
             return
 
-        logging.info('Copying file {}'.format(name))
-
-        destpath=self.mk_unique_name(destpath)
         destdir=os.path.dirname(destpath)
         toolbox.mkdir(destdir)
+
+        logging.info('Copying file {}'.format(name))
 
         try:
             check_call(['/bin/cp', '-p', name, destpath])
@@ -255,18 +261,15 @@ class CopyPTP(GenericCopyFramework):
         path = file_obj.directory.path
         self.status.update_filecopy(name)
 
-        destpath = '/'.join((import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name)))
-
-        if self.check_if_same_file(file_obj, destpath):
+        destpath = self.mk_unique_name(file_obj, '/'.join((import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name))))
+        if not destpath:
             logging.debug('Files {} and {} are the same'.format(name, destpath))
             return
 
-        logging.info('Copying file {}'.format(name))
-
-        destpath=self.mk_unique_name(destpath)
         destdir=os.path.dirname(destpath)
         toolbox.mkdir(destdir)
 
+        logging.info('Copying file {}'.format(name))
         try:
             file_obj.save(destpath)
             mtime = time.mktime(file_obj.last_modified.timetuple())
