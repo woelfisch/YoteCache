@@ -17,6 +17,8 @@ from photos.tools import toolbox
 from photos.statuswriter import StatusWriter
 
 class GenericCopyFramework(object):
+    _framework = 'generic'
+
     def sanitze_filename(self, name):
         # not sure if gphoto2 guarantees safe filenames, better safe than sorry.
         return re.sub('[\s/\\\\:]', '_', name)
@@ -61,6 +63,36 @@ class GenericCopyFramework(object):
                     return None
 
         return path
+
+    def copy(self):
+        '''
+        Copies metadata before actual content for import_photo to have it available
+        :return:None
+        '''
+
+        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
+                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
+                                 text='Start')
+
+        filelist = self.get_file_list()
+        basenames = filelist.keys()
+        basenames.sort()
+
+        self.status.update(text=' ')
+        for name in basenames:
+            extensions = filelist[name]
+            remaining = []
+            for e in extensions:
+                if e.lower() in settings.METADATA_EXTENSIONS:
+                    self.copy_file(name + e)
+                    continue
+                remaining.append(e)
+            for e in remaining:
+                self.copy_file(name + e)
+
+        self.status.update(text='Done')
+        self.status.close()
+
 
 class CopyFlash(GenericCopyFramework):
     # source stuff
@@ -129,7 +161,7 @@ class CopyFlash(GenericCopyFramework):
         # needs to print path of imported file to console to pipe into import_photo
         destpath=self.mk_unique_name(name, self.importbase+'/'+os.path.relpath(name, self.dcim_folder))
         if not destpath:
-            logging.debug('Files {} and {} are the same'.format(name, destpath))
+            logging.debug('File {} already exists'.format(name))
             return
 
         destdir=os.path.dirname(destpath)
@@ -146,35 +178,6 @@ class CopyFlash(GenericCopyFramework):
         print(destpath)
         sys.stdout.flush()
 
-    def copy(self):
-        '''
-        Copies metadata before actual content for import_photo to have it available
-        :return:None
-        '''
-
-        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
-                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
-                                 text='Start')
-
-        filelist = self.get_file_list()
-        basenames = filelist.keys()
-        basenames.sort()
-
-        self.status.update(text=' ')
-        for name in basenames:
-            extensions = filelist[name]
-            remaining = []
-            for e in extensions:
-                if e.lower() in settings.METADATA_EXTENSIONS:
-                    self.copy_file(name + e)
-                    continue
-                remaining.append(e)
-            for e in remaining:
-                self.copy_file(name + e)
-
-        self.status.update(text='Done')
-        self.status.close()
-
     def __init__(self, card_folder, card_device):
         if not card_folder:
             raise CommandError('Missing mount point parameter')
@@ -186,12 +189,36 @@ class CopyFlash(GenericCopyFramework):
         self.status=StatusWriter(settings.IMPORT_STATUS)
         self.importbase=settings.SOURCE_DIR+self.get_card_info()
 
+CopyPTP = None
+def ptpimplementation(obj):
+    '''
+    :param obj: PTP copy class
+    :return: obj for chaining
+    Unfortunately, both the SWIG and the FFI based python bindings for libgphoto2 have the same name ("gphoto2"),
+    the SWIG one is actively maintained but has some strict dependencies to other parts of the framework, the
+    FFI based implementation seems to be stable but disconnects from the camera after each operation (slow)
+    and isn't exactly well maintained...
+    '''
+    global CopyPTP
 
-class CopyPTP(GenericCopyFramework):
+    logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
+    if obj._framework == 'swig' and hasattr(gp, 'Context'):
+        logging.debug('using SWIG bindings for gphoto2')
+        CopyPTP = obj
+    if obj._framework == 'ffi' and hasattr(gp, 'backend') and hasattr(gp.backend, 'ffi'):
+        logging.debug('using FFI bindings for gphoto2')
+        CopyPTP = obj
+
+    return obj
+
+@ptpimplementation
+class _CopyPTP(GenericCopyFramework):
     '''
         gphoto2-cffi operates on object representations instead of (virtual) path names, so we have to
         replicate all the crap from above again without being able to reuse much of it. OOP my arse.
     '''
+
+    _framework = 'ffi'
 
     def get_camera_info(self):
         self.stores = []
@@ -239,8 +266,6 @@ class CopyPTP(GenericCopyFramework):
         filelist = {}
         filenumber = 0
 
-        print base_folder.name
-
         for folder in base_folder.directories:
             folder_name = os.path.basename(folder.path)
             if folder_name[:3].isdigit() or folder_name.lower() == 'camera':
@@ -263,7 +288,7 @@ class CopyPTP(GenericCopyFramework):
 
         destpath = self.mk_unique_name(file_obj, '/'.join((import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name))))
         if not destpath:
-            logging.debug('Files {} and {} are the same'.format(name, destpath))
+            logging.debug('File {} already exists'.format(name))
             return
 
         destdir=os.path.dirname(destpath)
@@ -317,6 +342,112 @@ class CopyPTP(GenericCopyFramework):
         self.camera = gp.Camera()
         self.get_camera_info()
 
+@ptpimplementation
+class _CopyPTP(GenericCopyFramework):
+    _framework = 'swig'
+
+    def get_camera_info(self):
+        self.stores = []
+        manufacturer = 'OEM'
+        model = 'Camera'
+        serial_number = '0000000000000042'
+        summary = self.camera.get_summary(self.context).text
+        for t in summary.splitlines():
+            if t.startswith('Manufacturer:'):
+                manufacturer = self.sanitze_filename(t[14:])
+            if t.startswith('Model:'):
+                model = self.sanitze_filename(t[7:])
+            if t.startswith('  Serial Number:'):
+                serial_number = self.sanitze_filename(t[17:])
+            if t.startswith('store_') and t[-1] == ':':
+                # store_%08x is generated by gphoto2, thus safe.
+                self.stores.append(('/'+t[:-1], '-'.join((model, serial_number, t[6:-1]))))
+
+    def check_if_same_file(self, source, destination):
+        (mtime_dest, valid) = self.get_mtime(destination)
+        if not valid:
+            return False
+
+        folder, filename = os.path.split(source)
+        try:
+            file_info = self.camera.file_get_info(folder, filename, self.context)
+        except gp.GPhoto2Error as e:
+            return False
+
+        mtime_src = tz.time.gmtime(int(file_info.file.mtime))
+        if mtime_src.tm_year < 2000:
+            return False
+
+        dt = datetime(*mtime_dest[:6]) - datetime(*mtime_src[:6])
+        if abs(dt.total_seconds()) > 1:
+            return False
+
+        try:
+            s1 = os.path.getsize(destination)
+            s2 = file_info.file.size
+            return s2 == s1
+        except:
+            return False
+
+
+    def get_file_list(self):
+        filelist = {}
+        filenumber = 0
+
+        # print self.importbase, self.dcim_folder
+        for folder, value in self.camera.folder_list_folders(self.dcim_folder, self.context):
+            if folder[:3].isdigit() or folder.lower() == 'camera':
+                files = self.camera.folder_list_files(self.dcim_folder+'/'+folder, self.context)
+                filenumber+=len(files)
+                for f, v in files:
+                    name, ext = os.path.splitext(self.dcim_folder + '/' + folder + '/' + f)
+                    if name not in filelist:
+                        filelist[name] = [ext]
+                    else:
+                        filelist[name].append(ext)
+
+        self.status.total_items = filenumber
+        logging.debug('get_file_list(): found {} files to copy'.format(filenumber))
+        return filelist
+
+    def copy_file(self, name):
+        self.status.update_filecopy(name)
+
+        # needs to print path of imported file to console to pipe into import_photo
+        destpath=self.mk_unique_name(name, self.importbase+'/'+os.path.relpath(name, self.dcim_folder))
+        if not destpath:
+            logging.debug('File {} already exists'.format(name))
+            return
+
+        destdir=os.path.dirname(destpath)
+        toolbox.mkdir(destdir)
+
+        logging.info('Copying file {}'.format(name))
+
+        # hurrdurrderp
+        folder, filename = os.path.split(name)
+        try:
+            the_file = self.camera.file_get(folder, filename, gp.GP_FILE_TYPE_NORMAL, self.context)
+            the_file.save(destpath)
+        except gp.GPhoto2Error as e:
+            logging.warning("Cannot copy {} to {}: {}".format(filename, destpath, e.string))
+
+        print(destpath)
+        sys.stdout.flush()
+        return destpath
+
+    def copy(self):
+        for folder, import_base in self.stores:
+            self.importbase = settings.SOURCE_DIR+import_base
+            self.dcim_folder = folder+'/DCIM'
+            super(CopyPTP, self).copy()
+
+
+    def __init__(self):
+        self.status=StatusWriter(settings.IMPORT_STATUS)
+        self.context = gp.Context()
+        self.camera = gp.Camera()
+        self.get_camera_info()
 
 
 class Command(BaseCommand):
