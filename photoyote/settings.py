@@ -10,7 +10,6 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 import logging
-import tempfile
 from photos.tools import toolbox
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -129,9 +128,18 @@ if DEBUG:
 else:
     LOGLEVEL = logging.WARNING
 
+# You can use either wand (ImageMagick) or rawpy (libraw, numpy, pillow) as IMAGE_LIB
+# ImageMagick is outrageously slow and exec()s ufraw-batch, which uses lensfun to correct lens distortions, among
+# other things we really do not need for a quick overview. Each RAW file of a Canon 7D takes 3 minutes to process
+# with wand on the CubieTruck. Use rawpy.
+IMAGE_LIB = 'rawpy'
 
-THUMBNAILSIZE = '128x128>'
-WEBSIZE = '720x720>'
+if IMAGE_LIB == 'wand':
+    THUMBNAILSIZE = '128x128>'
+    WEBSIZE = '720x720>'
+else:
+    THUMBNAILSIZE = (128, 128)
+    WEBSIZE = (720,720)
 
 DEFAULT_CATALOG='uncataloged'
 UNKNOWN_MIME_TYPE='application/octet-stream'

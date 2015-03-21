@@ -8,13 +8,18 @@ from subprocess import call
 from dateutil import tz
 from fractions import Fraction
 import magic    # python-magic
-from wand.image import Image  # Wand
 from gi.repository import GExiv2  # libgexiv2-2, typelib-1_0-GExiv2-0_4, python-gobject2
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from photos.tools import toolbox
 from photos.statuswriter import StatusWriter
 from photos.models import MimeType, Catalog, MediaFile
+
+if settings.IMAGE_LIB == 'wand':
+    from wand.image import Image  # Wand
+elif settings.IMAGE_LIB == 'rawpy':
+    import rawpy
+    from PIL import Image
 
 class Command(BaseCommand):
     """
@@ -37,6 +42,57 @@ class Command(BaseCommand):
     PROXY_THUMBNAIL = 1
     PROXY_WEBSIZED = 2
 
+    # outrageously slow, exec()s ufraw-batch in newer versions
+    def _create_proxy_wand(self, source, dest, mode):
+        # load image if not yet done
+        if not self.image:
+            try:
+                self.image = Image(filename=source)
+            except Exception as e:
+                logging.error('cannot read {}: {}'.format(source, e.args[0]))
+                raise e
+
+        # copy bitmap, we may need it again
+        image = self.image.convert('jpeg')
+
+        # resize
+        if mode == self.PROXY_FULLSIZE:
+            pass
+        elif mode == self.PROXY_THUMBNAIL:
+            image.transform(resize=settings.THUMBNAILSIZE)
+        elif mode == self.PROXY_WEBSIZED:
+            image.transform(resize=settings.WEBSIZE)
+
+        try:
+            # Wand does auto-rotate, but doesn't fix EXIF data... m(
+            image.strip()
+            image.save(filename=dest)
+        except (Exception, IOError) as e:
+            logging.error('Error: cannot write {}: {}'.format(dest, e.args[0]))
+            raise e
+
+    def _create_proxy_rawpy(self, source, dest, mode):
+        if not self.image:
+            try:
+                raw = rawpy.imread(source)
+                rgb = raw.postprocess(use_camera_wb=True, no_auto_bright=True)
+                self.image = Image.fromarray(rgb)
+            except Exception as e:
+                logging.error('cannot read {}: {}'.format(source, e.args[0]))
+                raise e
+
+        image = self.image.copy()
+        if mode == self.PROXY_FULLSIZE:
+            pass
+        elif mode == self.PROXY_THUMBNAIL:
+            image.thumbnail(settings.THUMBNAILSIZE)
+        elif mode == self.PROXY_WEBSIZED:
+            image.thumbnail(settings.WEBSIZE)
+
+        try:
+            image.save(dest)
+        except Exception as e:
+            logging.error('cannot write {}: {}'.format(dest, e.args[0]))
 
     def create_proxy(self, source, dest, mode):
         logging.info('called for {}, {}, {}'.format(source, dest, mode))
@@ -57,40 +113,17 @@ class Command(BaseCommand):
             try:
                 os.link(source, dest)
             except Exception as e:
-                logging.error('cannot link {} to {}: {}'.format(source, dest, e.message))
+                logging.error('cannot link {} to {}: {}'.format(source, dest, e.args[0]))
                 raise e
 
             return
 
-        # load image if not yet done
-        if not self.image:
-            try:
-                self.image = Image(filename=source)
-            except Exception as e:
-                logging.error('cannot read {}: {}'.format(source, e.message))
-                raise e
-
-        # copy bitmap, we may need it again
-        image = self.image.convert('jpeg')
-
-
-        # resize
-        if mode == self.PROXY_FULLSIZE:
-            pass
-        elif mode == self.PROXY_THUMBNAIL:
-            image.transform(resize=settings.THUMBNAILSIZE)
-        elif mode == self.PROXY_WEBSIZED:
-            image.transform(resize=settings.WEBSIZE)
-
-        try:
-            # Wand does auto-rotate, but doesn't fix EXIF data... m(
-            image.strip()
-            image.save(filename=dest)
-        except (Exception, IOError) as e:
-            logging.error('Error: cannot write {}: {}'.format(dest, e.message))
-            raise e
-
-        return
+        if settings.IMAGE_LIB == 'wand':
+            _create_proxy_wand(source, dest, mode)
+        elif settings.IMAGE_LIB == 'rawpy':
+            _create_proxy_rawpy(source, dest, mode)
+        else:
+            logging.error('configuration error: unknown or missing IMAGE_LIB {}'.format(settings.IMAGE_LIB))
 
     def create_video_proxy(self, source, dest, mode):
         logging.info('called for {}, {}, {}'.format(source, dest, mode))
@@ -207,7 +240,7 @@ class Command(BaseCommand):
             try:
                 entry=MediaFile(mediafile_path=sourcerelpath)
             except Exception as e:
-                logging.error('Cannot get object: {}'.format(e.message))
+                logging.error('Cannot get object: {}'.format(e.args[0]))
                 raise e
 
             entry.mime_type=mime_type
