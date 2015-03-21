@@ -97,7 +97,7 @@ WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP 
 EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
 THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
 PREVIEW_DIR = 'preview/'
-tempfile.tempdir='/data/tmp/'
+os.environ['TMPDIR'] = '/data/tmp/'
 
 STATUS_USE_FILE = False
 if STATUS_USE_FILE:
