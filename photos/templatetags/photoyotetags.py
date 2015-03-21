@@ -63,7 +63,7 @@ def basename(media_file):
 
 @register.simple_tag(name='static-image')
 def static_image(what):
-    prefix=settings.IMAGE_URL
+    prefix=settings.STATIC_URL
 
     if what == 'thumbnail':
         return prefix+settings.THUMBNAIL_TRANSPARENT_OVERLAY
@@ -72,7 +72,7 @@ def static_image(what):
     if what == 'unavailable':
         return prefix+settings.PREVIEW_UNAVAILABLE
 
-    return settings.STATIC_URL+"MISSING-IMAGE-FIX-ME.png"
+    return prefix+"MISSING-IMAGE-FIX-ME.png"
 
 @register.simple_tag(name='star-rating')
 def star_rating(rating, **kwargs):
