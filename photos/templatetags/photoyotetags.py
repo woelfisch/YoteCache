@@ -31,7 +31,7 @@ def thumbnail(media_file):
     if not os.path.exists(settings.WEB_DIR+basename):
         return settings.STATIC_URL+settings.THUMBNAIL_UNAVAILABLE
 
-    return settings.STATIC_URL+basename
+    return settings.IMAGE_URL+basename
 
 @register.filter(name='preview')
 def preview(media_file):
@@ -44,7 +44,7 @@ def preview(media_file):
     if not os.path.exists(settings.WEB_DIR+basename):
         return settings.STATIC_URL+settings.PREVIEW_UNAVAILABLE
 
-    return settings.STATIC_URL+basename
+    return settings.IMAGE_URL+basename
 
 @register.filter(name='fullsize')
 def fullsize(media_file):
@@ -55,7 +55,7 @@ def fullsize(media_file):
     if not os.path.exists(settings.WEB_DIR+proxy):
         return settings.STATIC_URL+settings.FULLSIZE_UNAVAILABLE
 
-    return settings.STATIC_URL+proxy
+    return settings.IMAGE_URL+proxy
 
 @register.filter(name='basename')
 def basename(media_file):
@@ -63,7 +63,7 @@ def basename(media_file):
 
 @register.simple_tag(name='static-image')
 def static_image(what):
-    prefix=settings.STATIC_URL
+    prefix=settings.IMAGE_URL
 
     if what == 'thumbnail':
         return prefix+settings.THUMBNAIL_TRANSPARENT_OVERLAY
@@ -72,7 +72,7 @@ def static_image(what):
     if what == 'unavailable':
         return prefix+settings.PREVIEW_UNAVAILABLE
 
-    return prefix+"MISSING-IMAGE-FIX-ME.png"
+    return settings.STATIC_URL+"MISSING-IMAGE-FIX-ME.png"
 
 @register.simple_tag(name='star-rating')
 def star_rating(rating, **kwargs):
