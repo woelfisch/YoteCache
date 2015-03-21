@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 import logging
+import tempfile
 from photos.tools import toolbox
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -96,6 +97,7 @@ WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP 
 EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
 THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
 PREVIEW_DIR = 'preview/'
+tempfile.tempdir='/data/tmp/'
 
 STATUS_USE_FILE = False
 if STATUS_USE_FILE:
