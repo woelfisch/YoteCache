@@ -119,9 +119,9 @@ class Command(BaseCommand):
             return
 
         if settings.IMAGE_LIB == 'wand':
-            _create_proxy_wand(source, dest, mode)
+            self._create_proxy_wand(source, dest, mode)
         elif settings.IMAGE_LIB == 'rawpy':
-            _create_proxy_rawpy(source, dest, mode)
+            self._create_proxy_rawpy(source, dest, mode)
         else:
             logging.error('configuration error: unknown or missing IMAGE_LIB {}'.format(settings.IMAGE_LIB))
 
