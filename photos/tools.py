@@ -101,4 +101,3 @@ class toolbox:
     def get_xmp_name(mediafilename):
         filename=toolbox.get_basename(mediafilename)+'.xmp'
         return filename
-

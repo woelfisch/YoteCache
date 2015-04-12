@@ -13,7 +13,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from photos.tools import toolbox
 from photos.statuswriter import StatusWriter
-from photos.models import MimeType, Catalog, MediaFile
+from photos.models import MimeType, Catalog, MediaDir, MediaFile
 
 if settings.IMAGE_LIB == 'wand':
     from wand.image import Image  # Wand
@@ -159,7 +159,7 @@ class Command(BaseCommand):
 
         return destxmppath
 
-    def get_timestamp(self, sourcefullpath, use_exif=True):
+    def get_timestamp(self, source_file, use_exif=True):
         # first try to get it from EXIF data
         if use_exif:
             timestamp=self.exif.get_tag_string('Exif.Photo.DateTimeOriginal')
@@ -170,7 +170,7 @@ class Command(BaseCommand):
 
         # try timestamp of file
         if not timestamp:
-            st=os.stat(sourcefullpath)
+            st=os.stat(source_file)
             timestruct=tz.time.gmtime(int(st.st_ctime))
             # camera clock not set, eh?
             if timestruct.tm_year < 2000:
@@ -179,9 +179,9 @@ class Command(BaseCommand):
 
         return tz.time.strptime(timestamp, '%Y:%m:%d %H:%M:%S')
 
-    def create_filename(self, sourcefullpath, timestruct):
+    def create_filename(self, source_file, timestruct):
         datestring=tz.time.strftime("%Y%m%d", timestruct)
-        mediabasename=os.path.basename(sourcefullpath).lower()
+        mediabasename=os.path.basename(source_file).lower()
         filename=datestring+"-"+mediabasename
         count=1
         while count < 1000000:
@@ -222,23 +222,31 @@ class Command(BaseCommand):
         except Exception as e:
             entry.focal_length=0
 
-    def update_db(self, sourcefullpath, sourcerelpath, sidecar=None, is_supported_media=True):
+    def update_db(self, source_file, sidecar=None, is_supported_media=True):
         entry=None
         try:
-            entry=MediaFile.objects.get(mediafile_path=sourcerelpath)
+            dir_path=os.path.dirname(os.path.relpath(source_file, settings.SOURCE_DIR))
+            media_dir, created=MediaDir.objects.get_or_create(path=dir_path)
+            media_file = os.path.basename(source_file)
+        except Exception as e:
+            logging.error('Cannot get or create directory object for {}: {}'.format(sourcerelpath, e.args[0]))
+            raise e
+
+        try:
+            entry=MediaFile.objects.get(media_dir=media_dir, media_file=media_file)
             if not self.force:
                 return entry
         except MediaFile.DoesNotExist:
-            timestamp=self.get_timestamp(sourcefullpath, use_exif=is_supported_media)
-            filename=self.create_filename(sourcefullpath, timestamp)
+            timestamp=self.get_timestamp(source_file, use_exif=is_supported_media)
+            filename=self.create_filename(source_file, timestamp)
             if not filename:
-                return
+                return None
 
             catalog, created=Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)
             mime_type, created=MimeType.objects.get_or_create(type=self.mimetype)
 
             try:
-                entry=MediaFile(mediafile_path=sourcerelpath)
+                entry=MediaFile(media_dir=media_dir, media_file=media_file)
             except Exception as e:
                 logging.error('Cannot get object: {}'.format(e.args[0]))
                 raise e
@@ -256,22 +264,22 @@ class Command(BaseCommand):
                 if label:
                     entry.label=label
 
-                entry.sidecar_path=sidecar
+                entry.sidecar_file=sidecar
 
         if is_supported_media:
             self.update_image_parameters(entry)
         return entry
 
-    def import_image(self, sourcefullpath, sourcerelpath):
+    def import_image(self, source_file):
         self.image = None
         # prefer XMP "sidecar" files to save us from parsing huge RAW files more than necessary
-        sourcexmppath = os.path.splitext(sourcefullpath)[0]
+        sourcexmppath = os.path.splitext(source_file)[0]
         havesourcesidecar = False
         for ext in (".xmp", ".XMP", "Xmp"):
-            if os.path.isfile(sourcexmppath + ext):
-                sourcexmppath += ext
+            if os.path.isfile(source_xmp_file + ext):
+                source_xmp_file += ext
                 try:
-                    havesourcesidecar = self.exif.open_path(sourcexmppath)  # returns True on success
+                    havesourcesidecar = self.exif.open_path(source_xmp_file)  # returns True on success
                 except Exception:
                     pass
 
@@ -279,9 +287,9 @@ class Command(BaseCommand):
 
         # No sidecar, oh well...
         if not havesourcesidecar:
-            self.exif.open_path(sourcefullpath)
+            self.exif.open_path(source_file)
 
-        (mediareldir, jpegfilename) = os.path.split(sourcerelpath)
+        (mediareldir, jpegfilename) = os.path.split(os.path.relpath(source_file, settings.SOURCE_DIR))
         jpegfilename = os.path.splitext(jpegfilename)[0] + ".jpg"
 
         self.status.update(10, 'Writing Proxy')
@@ -289,7 +297,7 @@ class Command(BaseCommand):
             mediadir = settings.WEB_DIR + mediareldir
             jpegfullpath = mediadir+'/'+jpegfilename
             toolbox.mkdir(mediadir)
-            self.create_proxy(sourcefullpath, jpegfullpath, self.PROXY_FULLSIZE)
+            self.create_proxy(source_file, jpegfullpath, self.PROXY_FULLSIZE)
         except Exception as e:
             raise e
 
@@ -298,7 +306,7 @@ class Command(BaseCommand):
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir+'/'+jpegfilename
             toolbox.mkdir(tndir)
-            self.create_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
+            self.create_proxy(source_file, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             os.unlink(jpegfullpath)
             raise e
@@ -308,7 +316,7 @@ class Command(BaseCommand):
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir+'/'+jpegfilename
             toolbox.mkdir(webimgdir)
-            self.create_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
+            self.create_proxy(source_file, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(jpegfullpath)
             os.unlink(tnfullpath)
@@ -323,31 +331,30 @@ class Command(BaseCommand):
         # by itself
 
         if not havesourcesidecar:
-            sourcexmppath=self.write_xmp_sidecar(sourcefullpath)
+            source_xmp_file=self.write_xmp_sidecar(source_file)
 
-        xmprelpath = os.path.relpath(sourcexmppath, settings.SOURCE_DIR)
-        entry=self.update_db(sourcefullpath, sourcerelpath, xmprelpath)
+        entry=self.update_db(source_file, sidecar=os.path.basename(source_xmp_file))
         self.status.update(95, 'Writing Database')
         entry.save()
         self.status.update(100, 'Done')
 
-    def import_video(self, sourcefullpath, sourcerelpath):
+    def import_video(self, source_file):
         if not settings.FFMPEG_COMMAND:
             raise NotImplementedError
 
-        sourcethmpath = os.path.splitext(sourcefullpath)[0]
+        source_thm_file = os.path.splitext(source_file)[0]
         havesourcesidecar = False
         for ext in (".thm", ".THM", "Thm"):
-            if os.path.isfile(sourcethmpath + ext):
-                sourcethmpath += ext
+            if os.path.isfile(source_thm_file + ext):
+                source_thm_file += ext
                 try:
-                    havesourcesidecar = self.exif.open_path(sourcethmpath)  # returns True on success
+                    havesourcesidecar = self.exif.open_path(source_thm_file)  # returns True on success
                 except Exception:
                     pass
 
                 break
 
-        (mediareldir, giffilename) = os.path.split(sourcerelpath)
+        (mediareldir, giffilename) = os.path.split(os.path.relpath(source_file, settings.SOURCE_DIR))
         mediadir = settings.WEB_DIR + mediareldir
         giffilename = os.path.splitext(giffilename)[0] + ".gif"
 
@@ -356,7 +363,7 @@ class Command(BaseCommand):
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir+'/'+giffilename
             toolbox.mkdir(tndir)
-            self.create_video_proxy(sourcefullpath, tnfullpath, self.PROXY_THUMBNAIL)
+            self.create_video_proxy(source_file, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             raise e
 
@@ -365,54 +372,52 @@ class Command(BaseCommand):
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir+'/'+giffilename
             toolbox.mkdir(webimgdir)
-            self.create_video_proxy(sourcefullpath, webimgfullpath, self.PROXY_WEBSIZED)
+            self.create_video_proxy(source_file, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(tnfullpath)
             raise e
 
         self.status.update(90, 'Writing Sidecar')
         if not havesourcesidecar:
-            sourcesidecarpath=self.write_xmp_sidecar(sourcefullpath)
-            self.exif.open_path(sourcesidecarpath)
-            sidecarrelpath = os.path.relpath(sourcesidecarpath, settings.SOURCE_DIR)
+            source_sidecar=self.write_xmp_sidecar(source_file)
+            self.exif.open_path(source_sidecar)
+            sidecar=os.path.basename(source_sidecar)
         else:
-            sidecarrelpath = os.path.relpath(sourcethmpath, settings.SOURCE_DIR)
+            sidecar=os.path.basename(source_thm_file)
 
-        entry = self.update_db(sourcefullpath, sourcerelpath, sidecarrelpath)
+        entry = self.update_db(source_file, sidecar=sidecar)
         self.status.update(95, 'Writing Database')
         entry.save()
         self.status.update(100, 'Done')
 
-    def import_other(self, sourcefullpath, sourcerelpath):
-        entry = self.update_db(sourcefullpath, sourcerelpath, is_supported_media=False)
+    def import_other(self, source_file):
+        entry = self.update_db(source_file, is_supported_media=False)
         if entry.mime_type.copy:
             self.status.update(50, 'Writing Database')
             entry.save()
         self.status.update(100, 'Done')
 
-    def do_import(self, sourcefullpath):
-        self.status=StatusWriter(statusname=settings.PROCESS_STATUS, filename=sourcefullpath, text='Start')
-        sourcefullpath = os.path.abspath(sourcefullpath)
-        if not sourcefullpath.startswith(settings.SOURCE_DIR):
-            logging.critical('{} is not below directory {}'.format(sourcefullpath, settings.SOURCE_DIR))
+    def do_import(self, source_file):
+        self.status=StatusWriter(statusname=settings.PROCESS_STATUS, filename=source_file, text='Start')
+        source_file = os.path.abspath(source_file)
+        if not source_file.startswith(settings.SOURCE_DIR):
+            logging.critical('{} is not below directory {}'.format(source_file, settings.SOURCE_DIR))
             self.status.error('Broken Configuration')
             return
 
-        if not os.path.isfile(sourcefullpath):
-            logging.critical('{} does not exist or is not a file'.format(sourcefullpath))
+        if not os.path.isfile(source_file):
+            logging.critical('{} does not exist or is not a file'.format(source_file))
             self.status.error('Not a File')
             return
 
-        sourcerelpath = os.path.relpath(sourcefullpath, settings.SOURCE_DIR)
-
         self.status.update(5, 'Examining File Type')
-        self.mimetype=magic.from_file(filename=sourcefullpath, mime=True)
-        extension=os.path.splitext(sourcefullpath)[1].lower()
+        self.mimetype=magic.from_file(filename=source_file, mime=True)
+        extension=os.path.splitext(source_file)[1].lower()
 
         # image, but skip video thumbnail (handled by do_import_video and exporter)
         if self.mimetype.startswith('image/') and extension != '.thm':
             try:
-                self.import_image(sourcefullpath, sourcerelpath)
+                self.import_image(source_file)
                 return
             except Exception as e:
                 logging.warning('Importer: ',exc_info=True)
@@ -422,7 +427,7 @@ class Command(BaseCommand):
         # video, yay.
         if self.mimetype.startswith('video/'):
             try:
-                self.import_video(sourcefullpath, sourcerelpath)
+                self.import_video(source_file)
                 return
             except Exception as e:
                 logging.warning('Importer: ',exc_info=True)
@@ -434,7 +439,7 @@ class Command(BaseCommand):
             self.status.update(100, 'Done')
             return
 
-        self.import_other(sourcefullpath, sourcerelpath)
+        self.import_other(source_file)
 
 
     def handle(self, *args, **options):

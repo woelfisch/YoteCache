@@ -119,6 +119,7 @@ if DEBUG:
     STATICFILES_DIRS = (
         WEB_DIR,
     )
+    IMAGE_URL = STATIC_URL
 
 LOGFILE = MEDIA_DIR+'log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(message)s'
@@ -145,7 +146,8 @@ DEFAULT_CATALOG='uncataloged'
 UNKNOWN_MIME_TYPE='application/octet-stream'
 METADATA_EXTENSIONS = ('.thn', '.xmp')
 
-MAX_PATH = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
+PATH_MAX = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
+NAME_MAX = os.pathconf('.', 'PC_NAME_MAX')
 
 VIDEO_PREVIEWTIME=30
 VIDEO_WEBSIZE=768

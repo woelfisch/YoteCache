@@ -76,10 +76,37 @@ class MimeType(models.Model):
     def natural_key(self):
         return self.type
 
+def get_default_media_dir():
+    return MediaDir.objects.get_or_create(path='__no_directory')[0]
+
+class MediaDirManager(models.Manager):
+    def get_by_natural_key(self, path):
+        return self.get(path=path)
+
+class MediaDir(models.Model):
+    path = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Path to import directory')
+    locked_by_pid = models.IntegerField(default=-1, help_text='Process that locked this directory')
+    locked_by_name = models.CharField(max_length=32, null=True, help_text='Subsystem that locked processing this directory')
+    locked_at = models.DateTimeField(default=timezone.now(), help_text='Timestamp when this directory was locked')
+
+    objects = MediaDirManager()
+
+    def __str__(self):
+        return self.path
+
+    def natural_key(self):
+        return self.path
+
 class MediaFile(models.Model):
-    mediafile_path = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Path to original file')
-    sidecar_path = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text='Path to sidecar file')
-    filename = models.CharField(max_length=settings.MAX_PATH, unique=True, help_text='Filename for export')
+    media_dir = models.ForeignKey(MediaDir, null=True, help_text='Path to import directory')
+    media_file = models.CharField(max_length=settings.NAME_MAX, null=True, help_text='Name of original file')
+    sidecar_file = models.CharField(max_length=settings.NAME_MAX, null=True, help_text='Name of sidecar file')
+
+    # drop after conversion on staging
+    # mediafile_path = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Path to original file')
+    # sidecar_path = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text='Path to sidecar file')
+
+    filename = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Filename for export')
     mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file', on_delete=models.SET(get_default_mime_type))
 
     date = models.DateTimeField(help_text='Creation date of the file')
@@ -94,6 +121,9 @@ class MediaFile(models.Model):
     rejected = models.BooleanField(default=False, help_text='Do not export this file')
 
     tracker = FieldTracker(fields=['catalog', 'rejected', 'rating', 'label'])
+
+    class Meta:
+        unique_together = (('media_dir', 'media_file'))
 
     def __str__(self):
         return self.filename
@@ -136,20 +166,26 @@ class MediaFile(models.Model):
         self.unlink_exports(self.catalog)
         super(MediaFile, self).delete(*args, **kwargs)
 
+    def sidecar_source_full_path(self):
+        return settings.SOURCE_DIR+self.media_dir.path+'/'+self.sidecar_file
+
+    def media_source_full_path(self):
+        return settings.SOURCE_DIR+self.media_dir.path+'/'+self.media_file
+
     def link_exports(self):
         destdir=self.catalog.get_path()
         logging.info('destdir is {}'.format(destdir))
         toolbox.mkdir(destdir)
-        toolbox.link(settings.SOURCE_DIR+self.mediafile_path, destdir+self.filename)
-        sidecar=toolbox.get_sidecar_name(self.filename, self.sidecar_path)
+        toolbox.link(self.media_source_full_path(), destdir+self.filename)
+        sidecar=toolbox.get_sidecar_name(self.filename, self.sidecar_file)
         if sidecar:
-            toolbox.link(settings.SOURCE_DIR+self.sidecar_path, destdir+sidecar)
+            toolbox.link(self.sidecar_source_full_path(), destdir+sidecar)
 
     def unlink_exports(self, catalog):
         try:
             dir=catalog.get_path()
             for filename in (self.filename,
-                             toolbox.get_sidecar_name(self.filename, self.sidecar_path),
+                             toolbox.get_sidecar_name(self.filename, self.sidecar_file),
                              toolbox.get_xmp_name(self.filename)):
                 if filename and os.path.isfile(dir+filename):
                     os.unlink(dir+filename)
@@ -158,18 +194,18 @@ class MediaFile(models.Model):
 
     # granted, this is business logic and doesn't really belong here, but...
     def create_xmp(self):
-        if not self.sidecar_path:
+        if not self.sidecar_file:
             return
 
         if not self.mime_type.type.split('/')[0] in ('image', 'video'):
             return
 
         exif=GExiv2.Metadata()
-        exif.open_path(settings.SOURCE_DIR+self.sidecar_path)
+        exif.open_path(self.sidecar_source_full_path())
         sidecar_label=exif.get_tag_interpreted_string('Xmp.xmp.Label')
         sidecar_rating=exif.get_tag_long('Xmp.xmp.Label')
 
-        sidecar_is_xmp=toolbox.sidecar_is_xmp(self.sidecar_path)
+        sidecar_is_xmp=toolbox.sidecar_is_xmp(self.sidecar_file)
         xmpfile=self.catalog.get_path()+toolbox.get_xmp_name(self.filename)
         if sidecar_is_xmp:
             try:
@@ -178,7 +214,7 @@ class MediaFile(models.Model):
                 pass
 
             if (not self.rating or self.rating == sidecar_rating) and (not self.label or self.label == sidecar_label):
-                os.link(settings.SOURCE_DIR+self.sidecar_path, xmpfile)
+                os.link(self.sidecar_source_full_path(), xmpfile)
                 return
 
         try:
@@ -197,12 +233,12 @@ class MediaFile(models.Model):
 class ProgressStatus(models.Model):
     name = models.CharField(max_length=32, unique=True, help_text="Name of this status")
     running = models.BooleanField(default=False, help_text="Operation running")
-    text = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Text associated with the status")
+    text = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text="Text associated with the status")
     progress = models.IntegerField(default=0, help_text="Progress in percent")
     total_items = models.BigIntegerField(default=0, help_text="Total number of items")
     current_item = models.BigIntegerField(default=0, help_text="Current item number")
-    filename = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Filename operating on")
-    directory = models.CharField(max_length=settings.MAX_PATH, null=True, blank=True, help_text="Directory operating on")
+    filename = models.CharField(max_length=settings.NAME_MAX, null=True, blank=True, help_text="Filename operating on")
+    directory = models.ForeignKey(MediaDir, null=True, help_text="Directory operating on")
     timestamp = models.DateTimeField(default=timezone.now())
 
     def __init__(self, *args, **kwargs):

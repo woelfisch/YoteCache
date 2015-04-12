@@ -96,7 +96,7 @@
         $("#image-fullsize").attr("src", media_list[cur_media].fullsize);
         $("#media-home").attr("href", "{% url 'index' %}");
         update_image_metadata({
-                mediafile_path: "No File",
+                media_file: "No File",
                 date: "1970-01-01T00:00:00Z",
                 catalog: "{{catalog}}",
                 rating: 0,
@@ -200,7 +200,7 @@
     }
 
     function update_metadata_main(data) {
-        $("#media-file").text(data.mediafile_path.split('/').pop());
+        $("#media-file").text(data.media_file)
         $("#media-date").text(display_timestamp(data.date));
 
         document.title="PhotoYote | "+$("#media-file").text()+" | "+$("#media-date").text()
@@ -858,7 +858,7 @@
                     <img class="image-center-overlay" src="{% static-image 'thumbnail' %}">
                 </div>
                 <div class="caption">
-                    <div>{{media.mediafile_path|basename}}</div>
+                    <div>{{media.media_file}}</div>
                     <div>{{media.date|date:'Y-m-d H:i'}}</div>
 
                     <div><span id="stars-{{media.id}}">

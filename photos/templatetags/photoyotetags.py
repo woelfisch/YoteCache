@@ -18,7 +18,7 @@ def proxyfile(media_file):
     else:
         return None
 
-    return toolbox.get_basename(media_file.mediafile_path)+extension
+    return toolbox.get_basename(media_file.media_dir.path+'/'+media_file.media_file)+extension
 
 @register.filter(name='thumbnail')
 def thumbnail(media_file):
