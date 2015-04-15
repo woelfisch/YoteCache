@@ -126,8 +126,10 @@ LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(mes
 LOGGER_HANDLE = 'photoyote'
 if DEBUG:
     LOGLEVEL = logging.DEBUG
+    DEBUG_MD_LOCKING = True
 else:
     LOGLEVEL = logging.WARNING
+    DEBUG_MD_LOCKING = False
 
 # You can use either wand (ImageMagick) or rawpy (libraw, numpy, pillow) as IMAGE_LIB
 # ImageMagick is outrageously slow and exec()s ufraw-batch, which uses lensfun to correct lens distortions, among

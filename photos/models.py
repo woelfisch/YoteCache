@@ -9,6 +9,9 @@ from model_utils import FieldTracker
 from tools import toolbox
 from gi.repository import GExiv2
 
+if settings.DEBUG_MD_LOCKING:
+    import sys
+
 LABELS = [
     ('None', 'None'),
     ('Red', 'Red'),
@@ -100,10 +103,15 @@ class MediaDirManager(models.Manager):
 
     def compare_and_lock(self, mediadir, path, prefix=None, strip_filename=True, name=None):
         path=self._split_path(path, prefix, strip_filename)
+
+        if not mediadir:
+            return self.get_and_lock(path, None, False, name)
+
         if path != mediadir.path:
             md = self.get_and_lock(path, None, False, name)
             mediadir.unlock()
             return md
+
         return mediadir
 
 class MediaDir(models.Model):
@@ -127,8 +135,12 @@ class MediaDir(models.Model):
         self.locked_by_name=name
         self.locked_at=timezone.now()
         self.save()
+        if settings.DEBUG_MD_LOCKING:
+            sys.stderr.write('locking {} for {} pid {}\n'.format(self.path, name, self.locked_by_pid))
 
     def unlock(self):
+        if settings.DEBUG_MD_LOCKING:
+            sys.stderr.write('unlocking {} for {} pid {}\n'.format(self.path, self.locked_by_name, self.locked_by_pid))
         self.locked_by_pid=-1
         self.locked_by_name=None
         self.locked_at=timezone.now()
