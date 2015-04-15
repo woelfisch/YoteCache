@@ -83,6 +83,29 @@ class MediaDirManager(models.Manager):
     def get_by_natural_key(self, path):
         return self.get(path=path)
 
+    def _split_path(self, path, prefix=None, strip_filename=True):
+        if prefix:
+            path=os.path.relpath(path, prefix)
+        if strip_filename:
+            path=os.path.dirname(path)
+        return path
+
+    def get_or_create_by_full_path(self, path, prefix=None, strip_filename=True):
+        return self.get_or_create(path=self._split_path(path, prefix, strip_filename))[0]
+
+    def get_and_lock(self, path, prefix=None, strip_filename=True, name=None):
+        md = self.get_or_create_by_full_path(path, prefix, strip_filename)
+        md.lock(name)
+        return md
+
+    def compare_and_lock(self, mediadir, path, prefix=None, strip_filename=True, name=None):
+        path=self._split_path(path, prefix, strip_filename)
+        if path != mediadir.path:
+            md = self.get_and_lock(path, None, False, name)
+            mediadir.unlock()
+            return md
+        return mediadir
+
 class MediaDir(models.Model):
     path = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Path to import directory')
     locked_by_pid = models.IntegerField(default=-1, help_text='Process that locked this directory')
@@ -96,6 +119,32 @@ class MediaDir(models.Model):
 
     def natural_key(self):
         return self.path
+
+    def lock(self, name=None):
+        if not name:
+            name = 'unspecified'
+        self.locked_by_pid=os.getpid()
+        self.locked_by_name=name
+        self.locked_at=timezone.now()
+        self.save()
+
+    def unlock(self):
+        self.locked_by_pid=-1
+        self.locked_by_name=None
+        self.locked_at=timezone.now()
+        self.save()
+
+    def is_locked(self):
+        if self.locked_by_pid == -1:
+            return False
+
+        if toolbox.process_dead(self.locked_by_pid):
+            self.unlock()
+            return False
+
+        # we probably should check whether the process behind locked_by_pid is one of ours, but that might be
+        # tricky.
+        return True
 
 class MediaFile(models.Model):
     media_dir = models.ForeignKey(MediaDir, null=True, help_text='Path to import directory')

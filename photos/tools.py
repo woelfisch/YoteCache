@@ -101,3 +101,14 @@ class toolbox:
     def get_xmp_name(mediafilename):
         filename=toolbox.get_basename(mediafilename)+'.xmp'
         return filename
+
+    @staticmethod
+    def process_dead(pid):
+        try:
+            os.kill(pid, 0)
+        except OSError as e:
+            # only two possibilities: EINVAL, ESRCH or EPERM. EPERM means the process exists ;-)
+            # EINVAL cannot happen on POSIX compliant systems.
+            return e.args[0] == os.errno.ESRCH  # 'No Such Process'
+
+        return False
