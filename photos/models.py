@@ -26,9 +26,11 @@ LABELS = [
 def get_default_catalog():
     return Catalog.objects.get_or_create(name=settings.DEFAULT_CATALOG)[0]
 
+
 class CatalogManager(models.Manager):
     def get_by_natural_key(self, catalog):
         return self.get(catalog=catalog)
+
 
 class Catalog(models.Model):
     name = models.CharField(max_length=256, unique=True, help_text='Name of the catalog')
@@ -55,7 +57,7 @@ class Catalog(models.Model):
         super(Catalog, self).delete(*args, **kwargs)
 
     def get_path(self):
-        return settings.EXPORT_DIR+self.name+'/'
+        return settings.EXPORT_DIR + self.name + '/'
 
 
 class MimeTypeManager(models.Manager):
@@ -65,6 +67,7 @@ class MimeTypeManager(models.Manager):
 
 def get_default_mime_type():
     return MimeType.objects.get_or_create(type=settings.UNKOWN_MIME_TYPE)[0]
+
 
 class MimeType(models.Model):
     type = models.CharField(max_length=256, unique=True, help_text='MIME type')
@@ -79,8 +82,10 @@ class MimeType(models.Model):
     def natural_key(self):
         return self.type
 
+
 def get_default_media_dir():
     return MediaDir.objects.get_or_create(path='__no_directory')[0]
+
 
 class MediaDirManager(models.Manager):
     def get_by_natural_key(self, path):
@@ -88,10 +93,16 @@ class MediaDirManager(models.Manager):
 
     def _split_path(self, path, prefix=None, strip_filename=True):
         if prefix:
-            path=os.path.relpath(path, prefix)
+            path = os.path.relpath(path, prefix)
         if strip_filename:
-            path=os.path.dirname(path)
+            path = os.path.dirname(path)
         return path
+
+    def get_by_full_path(self, path, prefix=None, strip_filename=True):
+        try:
+            return self.get(path=self._split_path(path, prefix, strip_filename))
+        except MediaDir.DoesNotExist:
+            return None
 
     def get_or_create_by_full_path(self, path, prefix=None, strip_filename=True):
         return self.get_or_create(path=self._split_path(path, prefix, strip_filename))[0]
@@ -102,7 +113,7 @@ class MediaDirManager(models.Manager):
         return md
 
     def compare_and_lock(self, mediadir, path, prefix=None, strip_filename=True, name=None):
-        path=self._split_path(path, prefix, strip_filename)
+        path = self._split_path(path, prefix, strip_filename)
 
         if not mediadir:
             return self.get_and_lock(path, None, False, name)
@@ -114,10 +125,12 @@ class MediaDirManager(models.Manager):
 
         return mediadir
 
+
 class MediaDir(models.Model):
     path = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Path to import directory')
     locked_by_pid = models.IntegerField(default=-1, help_text='Process that locked this directory')
-    locked_by_name = models.CharField(max_length=32, null=True, help_text='Subsystem that locked processing this directory')
+    locked_by_name = models.CharField(max_length=32, null=True,
+                                      help_text='Subsystem that locked processing this directory')
     locked_at = models.DateTimeField(default=timezone.now(), help_text='Timestamp when this directory was locked')
 
     objects = MediaDirManager()
@@ -131,9 +144,9 @@ class MediaDir(models.Model):
     def lock(self, name=None):
         if not name:
             name = 'unspecified'
-        self.locked_by_pid=os.getpid()
-        self.locked_by_name=name
-        self.locked_at=timezone.now()
+        self.locked_by_pid = os.getpid()
+        self.locked_by_name = name
+        self.locked_at = timezone.now()
         self.save()
         if settings.DEBUG_MD_LOCKING:
             sys.stderr.write('locking {} for {} pid {}\n'.format(self.path, name, self.locked_by_pid))
@@ -141,9 +154,9 @@ class MediaDir(models.Model):
     def unlock(self):
         if settings.DEBUG_MD_LOCKING:
             sys.stderr.write('unlocking {} for {} pid {}\n'.format(self.path, self.locked_by_name, self.locked_by_pid))
-        self.locked_by_pid=-1
-        self.locked_by_name=None
-        self.locked_at=timezone.now()
+        self.locked_by_pid = -1
+        self.locked_by_name = None
+        self.locked_at = timezone.now()
         self.save()
 
     def is_locked(self):
@@ -158,6 +171,7 @@ class MediaDir(models.Model):
         # tricky.
         return True
 
+
 class MediaFile(models.Model):
     media_dir = models.ForeignKey(MediaDir, null=True, help_text='Path to import directory')
     media_file = models.CharField(max_length=settings.NAME_MAX, null=True, help_text='Name of original file')
@@ -168,7 +182,8 @@ class MediaFile(models.Model):
     # sidecar_path = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text='Path to sidecar file')
 
     filename = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Filename for export')
-    mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file', on_delete=models.SET(get_default_mime_type))
+    mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file',
+                                  on_delete=models.SET(get_default_mime_type))
 
     date = models.DateTimeField(help_text='Creation date of the file')
     exposure_time = models.FloatField(blank=True, null=True, help_text='Exposure Time as a fraction')
@@ -194,27 +209,27 @@ class MediaFile(models.Model):
         super(MediaFile, self).__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
-        destdir=self.catalog.get_path()
+        destdir = self.catalog.get_path()
         recreate_xmp = False
 
         if self.tracker.has_changed('catalog'):
-            prev=self.tracker.previous('catalog')
+            prev = self.tracker.previous('catalog')
             if prev:
-                oldcatalog=Catalog.objects.get(id=prev)
+                oldcatalog = Catalog.objects.get(id=prev)
                 self.unlink_exports(oldcatalog)
-            recreate_xmp=True
+            recreate_xmp = True
         elif self.tracker.has_changed('rejected'):
             if self.rejected:
                 self.unlink_exports(self.catalog)
             else:
-                recreate_xmp=True
+                recreate_xmp = True
 
         if self.tracker.has_changed('rating') or self.tracker.has_changed('label'):
-            recreate_xmp=True
+            recreate_xmp = True
 
         if not self.rejected:
-            if not os.path.isfile(destdir+self.filename):
-                recreate_xmp=True
+            if not os.path.isfile(destdir + self.filename):
+                recreate_xmp = True
                 self.link_exports()
 
             if recreate_xmp:
@@ -228,28 +243,28 @@ class MediaFile(models.Model):
         super(MediaFile, self).delete(*args, **kwargs)
 
     def sidecar_source_full_path(self):
-        return settings.SOURCE_DIR+self.media_dir.path+'/'+self.sidecar_file
+        return settings.SOURCE_DIR + self.media_dir.path + '/' + self.sidecar_file
 
     def media_source_full_path(self):
-        return settings.SOURCE_DIR+self.media_dir.path+'/'+self.media_file
+        return settings.SOURCE_DIR + self.media_dir.path + '/' + self.media_file
 
     def link_exports(self):
-        destdir=self.catalog.get_path()
+        destdir = self.catalog.get_path()
         logging.info('destdir is {}'.format(destdir))
         toolbox.mkdir(destdir)
-        toolbox.link(self.media_source_full_path(), destdir+self.filename)
-        sidecar=toolbox.get_sidecar_name(self.filename, self.sidecar_file)
+        toolbox.link(self.media_source_full_path(), destdir + self.filename)
+        sidecar = toolbox.get_sidecar_name(self.filename, self.sidecar_file)
         if sidecar:
-            toolbox.link(self.sidecar_source_full_path(), destdir+sidecar)
+            toolbox.link(self.sidecar_source_full_path(), destdir + sidecar)
 
     def unlink_exports(self, catalog):
         try:
-            dir=catalog.get_path()
+            directory = catalog.get_path()
             for filename in (self.filename,
                              toolbox.get_sidecar_name(self.filename, self.sidecar_file),
                              toolbox.get_xmp_name(self.filename)):
-                if filename and os.path.isfile(dir+filename):
-                    os.unlink(dir+filename)
+                if filename and os.path.isfile(directory + filename):
+                    os.unlink(directory + filename)
         except OSError:
             pass
 
@@ -261,13 +276,13 @@ class MediaFile(models.Model):
         if not self.mime_type.type.split('/')[0] in ('image', 'video'):
             return
 
-        exif=GExiv2.Metadata()
+        exif = GExiv2.Metadata()
         exif.open_path(self.sidecar_source_full_path())
-        sidecar_label=exif.get_tag_interpreted_string('Xmp.xmp.Label')
-        sidecar_rating=exif.get_tag_long('Xmp.xmp.Label')
+        sidecar_label = exif.get_tag_interpreted_string('Xmp.xmp.Label')
+        sidecar_rating = exif.get_tag_long('Xmp.xmp.Label')
 
-        sidecar_is_xmp=toolbox.sidecar_is_xmp(self.sidecar_file)
-        xmpfile=self.catalog.get_path()+toolbox.get_xmp_name(self.filename)
+        sidecar_is_xmp = toolbox.sidecar_is_xmp(self.sidecar_file)
+        xmpfile = self.catalog.get_path() + toolbox.get_xmp_name(self.filename)
         if sidecar_is_xmp:
             try:
                 os.unlink(xmpfile)
@@ -279,7 +294,7 @@ class MediaFile(models.Model):
                 return
 
         try:
-            fd=open(xmpfile, 'w')
+            fd = open(xmpfile, 'w')
             fd.write('<?xml version="1.0" encoding="UTF-8"?><x:xmpmeta xmlns:x="adobe:ns:meta/"></x:xmpmeta>')
             fd.close()
         except IOError as e:
@@ -291,10 +306,12 @@ class MediaFile(models.Model):
         exif.set_tag_string('Xmp.xmp.Rating', self.rating.__str__())
         exif.save_file(xmpfile)
 
+
 class ProgressStatus(models.Model):
     name = models.CharField(max_length=32, unique=True, help_text="Name of this status")
     running = models.BooleanField(default=False, help_text="Operation running")
-    text = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text="Text associated with the status")
+    text = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True,
+                            help_text="Text associated with the status")
     progress = models.IntegerField(default=0, help_text="Progress in percent")
     total_items = models.BigIntegerField(default=0, help_text="Total number of items")
     current_item = models.BigIntegerField(default=0, help_text="Current item number")

@@ -5,7 +5,7 @@ import os
 import os.path
 import time
 import logging
-import gphoto2 as gp    # that's gphoto2-cffi, not the SWIG based one!
+import gphoto2 as gp  # that's gphoto2-cffi, not the SWIG based one!
 
 from subprocess import check_output, check_call
 from dateutil import tz
@@ -15,6 +15,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from photos.tools import toolbox
 from photos.statuswriter import StatusWriter
+
 
 class GenericCopyFramework(object):
     _framework = 'generic'
@@ -29,10 +30,10 @@ class GenericCopyFramework(object):
             # anything older means that the clock of the camera hasn't been set.
             if timestruct.tm_year < 2000:
                 raise
-            return (timestruct, True)
+            return timestruct, True
         except:
             # in that case (or the stat() above fails...) use the current time
-            return (tz.time.gmtime(), False)
+            return tz.time.gmtime(), False
 
     def mk_dos_uuid(self):
         uuid = uuid4().fields
@@ -43,7 +44,7 @@ class GenericCopyFramework(object):
         return False
 
     def mk_unique_name(self, source, path):
-        dir = os.path.dirname(path)
+        directory = os.path.dirname(path)
         fn = os.path.basename(path)
         count = 1
 
@@ -51,28 +52,28 @@ class GenericCopyFramework(object):
             if self.check_if_same_file(source, path):
                 return None
 
-            path = dir + '/{:04d}-{}'.format(count, fn)
+            path = directory + '/{:04d}-{}'.format(count, fn)
             count += 1
             # goddammit robin!
             # DCIM allows a maximum of 9999 files per folder
             # the outer loops allows 10000 name collissions
             # if the inner loop keeps colliding, too, something is terribly wrong.
             while count > 9999 and os.path.isfile(path):
-                path = dir + '/{}-{}'.format(base64.urlsafe_b64encode(uuid4().bytes)[:10], fn)
+                path = directory + '/{}-{}'.format(base64.urlsafe_b64encode(uuid4().bytes)[:10], fn)
                 if self.check_if_same_file(source, path):
                     return None
 
         return path
 
     def copy(self):
-        '''
+        """
         Copies metadata before actual content for import_photo to have it available
         :return:None
-        '''
+        """
 
-        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
-                                 dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
-                                 text='Start')
+        self.status = StatusWriter(statusname=settings.IMPORT_STATUS,
+                                   dirname=os.path.relpath(self.importbase, settings.SOURCE_DIR),
+                                   text='Start')
 
         filelist = self.get_file_list()
         basenames = filelist.keys()
@@ -103,10 +104,10 @@ class CopyFlash(GenericCopyFramework):
             arg, value = line.split('=')
             blkid[arg] = value
 
-        if not 'LABEL' in blkid and not 'UUID' in blkid:
+        if 'LABEL' not in blkid and 'UUID' not in blkid:
             return self.mk_dirname()
 
-        if not 'UUID' in blkid:
+        if 'UUID' not in blkid:
             blkid['UUID'] = self.mk_dos_uuid()
 
         if 'LABEL' in blkid:
@@ -141,9 +142,9 @@ class CopyFlash(GenericCopyFramework):
         filenumber = 0
 
         for root, dirs, files in os.walk(self.dcim_folder):
-            root_basename=os.path.basename(root)
+            root_basename = os.path.basename(root)
             if root_basename[:3].isdigit():
-                filenumber+=len(files)
+                filenumber += len(files)
                 for f in files:
                     name, ext = os.path.splitext(root + '/' + f)
                     if name not in filelist:
@@ -159,12 +160,12 @@ class CopyFlash(GenericCopyFramework):
         self.status.update_filecopy(name)
 
         # needs to print path of imported file to console to pipe into import_photo
-        destpath=self.mk_unique_name(name, self.importbase+'/'+os.path.relpath(name, self.dcim_folder))
+        destpath = self.mk_unique_name(name, self.importbase + '/' + os.path.relpath(name, self.dcim_folder))
         if not destpath:
             logging.debug('File {} already exists'.format(name))
             return
 
-        destdir=os.path.dirname(destpath)
+        destdir = os.path.dirname(destpath)
         toolbox.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
@@ -184,21 +185,24 @@ class CopyFlash(GenericCopyFramework):
         if not card_device:
             raise CommandError('Missing device node parameter')
 
-        self.card_device=card_device
-        self.dcim_folder=card_folder+'/DCIM'
-        self.status=StatusWriter(settings.IMPORT_STATUS)
-        self.importbase=settings.SOURCE_DIR+self.get_card_info()
+        self.card_device = card_device
+        self.dcim_folder = card_folder + '/DCIM'
+        self.status = StatusWriter(settings.IMPORT_STATUS)
+        self.importbase = settings.SOURCE_DIR + self.get_card_info()
+
 
 CopyPTP = None
+
+
 def ptpimplementation(obj):
-    '''
+    """
     :param obj: PTP copy class
     :return: obj for chaining
     Unfortunately, both the SWIG and the FFI based python bindings for libgphoto2 have the same name ("gphoto2"),
     the SWIG one is actively maintained but has some strict dependencies to other parts of the framework, the
     FFI based implementation seems to be stable but disconnects from the camera after each operation (slow)
     and isn't exactly well maintained...
-    '''
+    """
     global CopyPTP
 
     logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
@@ -211,12 +215,13 @@ def ptpimplementation(obj):
 
     return obj
 
+
 @ptpimplementation
 class _CopyPTP(GenericCopyFramework):
-    '''
+    """
         gphoto2-cffi operates on object representations instead of (virtual) path names, so we have to
         replicate all the crap from above again without being able to reuse much of it. OOP my arse.
-    '''
+    """
 
     _framework = 'ffi'
 
@@ -240,12 +245,10 @@ class _CopyPTP(GenericCopyFramework):
         for volume in self.camera.storage_info:
             self.stores.append((volume.directory, '-'.join((model, serial_number, volume.directory.path[7:]))))
 
-
     def check_if_same_file(self, source, destination):
         (mtime_dest, valid) = self.get_mtime(destination)
         if not valid:
             return False
-
 
         mtime_src = source.last_modified
         if mtime_src.year < 2000:
@@ -269,7 +272,7 @@ class _CopyPTP(GenericCopyFramework):
         for folder in base_folder.directories:
             folder_name = os.path.basename(folder.path)
             if folder_name[:3].isdigit() or folder_name.lower() == 'camera':
-                filenumber+=len(tuple(folder.files))
+                filenumber += len(tuple(folder.files))
                 for f in folder.files:
                     name, ext = os.path.splitext(f.name)
                     if name not in filelist:
@@ -286,12 +289,13 @@ class _CopyPTP(GenericCopyFramework):
         path = file_obj.directory.path
         self.status.update_filecopy(name)
 
-        destpath = self.mk_unique_name(file_obj, '/'.join((import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name))))
+        destpath = self.mk_unique_name(file_obj, '/'.join(
+            (import_base, file_obj.directory.path.split('/')[-1], self.sanitze_filename(name))))
         if not destpath:
             logging.debug('File {} already exists'.format(name))
             return
 
-        destdir=os.path.dirname(destpath)
+        destdir = os.path.dirname(destpath)
         toolbox.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
@@ -305,11 +309,10 @@ class _CopyPTP(GenericCopyFramework):
         print(destpath)
         sys.stdout.flush()
 
-
     def copy_volume(self, import_base, folder):
-        self.status=StatusWriter(statusname=settings.IMPORT_STATUS,
-                                 dirname=os.path.relpath(import_base, settings.SOURCE_DIR),
-                                 text='Start')
+        self.status = StatusWriter(statusname=settings.IMPORT_STATUS,
+                                   dirname=os.path.relpath(import_base, settings.SOURCE_DIR),
+                                   text='Start')
 
         filelist = self.get_file_list(folder)
         basenames = filelist.keys()
@@ -334,11 +337,10 @@ class _CopyPTP(GenericCopyFramework):
         for folder, import_base in self.stores:
             for dcim_candidate in folder.directories:
                 if dcim_candidate.path.endswith('/DCIM'):
-                    self.copy_volume(settings.SOURCE_DIR+import_base, dcim_candidate)
-
+                    self.copy_volume(settings.SOURCE_DIR + import_base, dcim_candidate)
 
     def __init__(self):
-        self.status=StatusWriter(settings.IMPORT_STATUS)
+        self.status = StatusWriter(settings.IMPORT_STATUS)
         self.camera = gp.Camera()
         self.get_camera_info()
 
@@ -361,7 +363,7 @@ class _CopyPTP(GenericCopyFramework):
                 serial_number = self.sanitze_filename(t[17:])
             if t.startswith('store_') and t[-1] == ':':
                 # store_%08x is generated by gphoto2, thus safe.
-                self.stores.append(('/'+t[:-1], '-'.join((model, serial_number, t[6:-1]))))
+                self.stores.append(('/' + t[:-1], '-'.join((model, serial_number, t[6:-1]))))
 
     def check_if_same_file(self, source, destination):
         (mtime_dest, valid) = self.get_mtime(destination)
@@ -389,7 +391,6 @@ class _CopyPTP(GenericCopyFramework):
         except:
             return False
 
-
     def get_file_list(self):
         filelist = {}
         filenumber = 0
@@ -397,8 +398,8 @@ class _CopyPTP(GenericCopyFramework):
         # print self.importbase, self.dcim_folder
         for folder, value in self.camera.folder_list_folders(self.dcim_folder, self.context):
             if folder[:3].isdigit() or folder.lower() == 'camera':
-                files = self.camera.folder_list_files(self.dcim_folder+'/'+folder, self.context)
-                filenumber+=len(files)
+                files = self.camera.folder_list_files(self.dcim_folder + '/' + folder, self.context)
+                filenumber += len(files)
                 for f, v in files:
                     name, ext = os.path.splitext(self.dcim_folder + '/' + folder + '/' + f)
                     if name not in filelist:
@@ -414,12 +415,12 @@ class _CopyPTP(GenericCopyFramework):
         self.status.update_filecopy(name)
 
         # needs to print path of imported file to console to pipe into import_photo
-        destpath=self.mk_unique_name(name, self.importbase+'/'+os.path.relpath(name, self.dcim_folder))
+        destpath = self.mk_unique_name(name, self.importbase + '/' + os.path.relpath(name, self.dcim_folder))
         if not destpath:
             logging.debug('File {} already exists'.format(name))
             return
 
-        destdir=os.path.dirname(destpath)
+        destdir = os.path.dirname(destpath)
         toolbox.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
@@ -438,13 +439,12 @@ class _CopyPTP(GenericCopyFramework):
 
     def copy(self):
         for folder, import_base in self.stores:
-            self.importbase = settings.SOURCE_DIR+import_base
-            self.dcim_folder = folder+'/DCIM'
+            self.importbase = settings.SOURCE_DIR + import_base
+            self.dcim_folder = folder + '/DCIM'
             super(CopyPTP, self).copy()
 
-
     def __init__(self):
-        self.status=StatusWriter(settings.IMPORT_STATUS)
+        self.status = StatusWriter(settings.IMPORT_STATUS)
         self.context = gp.Context()
         self.camera = gp.Camera()
         self.get_camera_info()
@@ -475,9 +475,9 @@ class Command(BaseCommand):
 
         try:
             if options['ptp_mode']:
-                obj=CopyPTP()
+                obj = CopyPTP()
             else:
-                obj=CopyFlash(options['card_folder'], options['card_device'])
+                obj = CopyFlash(options['card_folder'], options['card_device'])
 
             obj.copy()
         except:

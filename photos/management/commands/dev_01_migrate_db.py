@@ -10,12 +10,14 @@ from dateutil import tz
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 
+
 class Command(BaseCommand):
     """
     Remove entries of deleted photos from the database
     """
+
     def handle(self, *args, **options):
-        for m  in MediaFile.objects.all():
+        for m in MediaFile.objects.all():
             m_dir = os.path.dirname(m.mediafile_path)
             m_file = os.path.basename(m.mediafile_path)
             if m.sidecar_path:

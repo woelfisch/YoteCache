@@ -10,11 +10,12 @@ from django.core import serializers
 
 # Create your views here.
 def index(request):
-    all_media_list=[]
-    catalog_list=Catalog.objects.order_by('id')
+    all_media_list = []
+    catalog_list = Catalog.objects.order_by('id')
     for catalog in catalog_list:
         # filename contains a timestamp, otherwise: order_by('date', 'filename')
-        media_files = MediaFile.objects.filter(catalog=catalog).exclude(rejected=True).exclude(mime_type__hide=True).order_by('filename')
+        media_files = MediaFile.objects.filter(catalog=catalog).exclude(rejected=True).exclude(
+            mime_type__hide=True).order_by('filename')
         # the template engine cannot dereference dicts based on variables
         all_media_list.append([catalog, media_files])
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
@@ -26,7 +27,7 @@ def lighttable(request, catalog_id):
 
     try:
         media_first = filmstrip[0]
-        media_last = filmstrip[len(filmstrip)-1]
+        media_last = filmstrip[len(filmstrip) - 1]
     except:
         media_first = None
         media_last = None
@@ -38,13 +39,14 @@ def lighttable(request, catalog_id):
         'first': media_first,
         'last': media_last})
 
+
 @requires_csrf_token
 def metadata(request, media_id=None):
     media = get_object_or_404(MediaFile, id=media_id)
     for item in request.POST:
         if item == 'rating':
             try:
-                rating=int(request.POST[item])
+                rating = int(request.POST[item])
                 if (rating < 0) or (rating > 5):
                     continue
                 media.rating = rating
@@ -59,18 +61,19 @@ def metadata(request, media_id=None):
             rejected = request.POST[item]
             media.rejected = rejected.lower() == 'true'
         elif item == 'catalog':
-            catalog_name=re.sub('[\\\\/]\s?', '', request.POST[item])
+            catalog_name = re.sub('[\\\\/]\s?', '', request.POST[item])
             (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
             media.catalog = catalog
 
     media.save()
 
-    json = serializers.serialize('json', [media], use_natural_foreign_keys=True)
-    return HttpResponse(content=json, content_type='application/json')
+    meta_json = serializers.serialize('json', [media], use_natural_foreign_keys=True)
+    return HttpResponse(content=meta_json, content_type='application/json')
+
 
 @requires_csrf_token
 def bulk(request):
-    if not 'json' in request.POST:
+    if 'json' not in request.POST:
         return HttpResponseBadRequest('<p>Missing parameter in POST</p>')
 
     try:
@@ -119,9 +122,9 @@ def bulk(request):
         elif op == 'ne':
             media_list = media_list.exclude(rating=value)
         elif op == 'le':
-            media_list = media_list.filter(rating__lt=value+1)
+            media_list = media_list.filter(rating__lt=value + 1)
         elif op == 'ge':
-            media_list = media_list.filter(rating__gt=value-1)
+            media_list = media_list.filter(rating__gt=value - 1)
         else:
             return HttpResponseBadRequest('<p>Wrong operator</p>')
     elif item == 'label':
@@ -136,8 +139,8 @@ def bulk(request):
             media_list = media_list.exclude(catalog__name=value)
     elif item == 'date':
         try:
-            dt_start = timezone.make_aware(datetime.strptime(value['start']+':00', '%Y-%m-%d %H:%M:%S'), timezone.utc)
-            dt_end = timezone.make_aware(datetime.strptime(value['end']+':59', '%Y-%m-%d %H:%M:%S'), timezone.utc)
+            dt_start = timezone.make_aware(datetime.strptime(value['start'] + ':00', '%Y-%m-%d %H:%M:%S'), timezone.utc)
+            dt_end = timezone.make_aware(datetime.strptime(value['end'] + ':59', '%Y-%m-%d %H:%M:%S'), timezone.utc)
             if dt_start < dt_end:
                 dt_range = (dt_start, dt_end)
             else:
@@ -162,7 +165,7 @@ def bulk(request):
             value = action['set']['value']
             # keep this out of the loop
             if item == 'catalog':
-                catalog_name=re.sub('[\\\\/]\s?', '', value)
+                catalog_name = re.sub('[\\\\/]\s?', '', value)
                 (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
                 value = catalog
         except:
@@ -192,12 +195,13 @@ def bulk(request):
     response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
     return HttpResponse(content=response, content_type='application/json')
 
+
 @csrf_exempt
 def status(request):
     for s in ProgressStatus.objects.filter(running=True):
-        if s.timestamp + timedelta(seconds = 450) < timezone.now():
+        if s.timestamp + timedelta(seconds=450) < timezone.now():
             s.timestamp = timezone.now()
             s.running = False
             s.save()
-    json = serializers.serialize('json', ProgressStatus.objects.all())
-    return HttpResponse(content=json, content_type='application/json')
+    status_json = serializers.serialize('json', ProgressStatus.objects.all())
+    return HttpResponse(content=status_json, content_type='application/json')

@@ -4,12 +4,13 @@ import logging
 from pwd import getpwnam
 from grp import getgrnam
 
+
 class toolbox:
     @staticmethod
     def www_user():
         for username in ('wwwrun', 'www-data', 'www', 'apache', 'httpd'):
             try:
-                pw=getpwnam(username)
+                pw = getpwnam(username)
                 return pw.pw_uid
             except:
                 pass
@@ -19,7 +20,7 @@ class toolbox:
     def www_group():
         for groupname in ('www', 'www-data', 'apache', 'httpd'):
             try:
-                gr=getgrnam(groupname)
+                gr = getgrnam(groupname)
                 return gr.gr_gid
             except:
                 pass
@@ -33,19 +34,19 @@ class toolbox:
             if os.path.isdir(path):
                 pass
             else:
-                logging.error('Cannot create directory {}: {}'.format(path, e.message))
+                logging.error('Cannot create directory {}: {}'.format(path, e.args[0]))
                 raise e
         try:
             os.chown(path, settings.WWWUSER, settings.WWWGROUP)
             os.chmod(path, 0755)
         except (KeyError, OSError) as e:
-            logging.warning('Cannot change owner / group of {}: {}'.format(path, e.message))
+            logging.warning('Cannot change owner / group of {}: {}'.format(path, e.args[0]))
 
     @staticmethod
     def is_in_path(filename):
         # this doesn't take the pathological case of path elements containing quoted colons into account...
-        for dir in os.environ['PATH'].split(':'):
-            if os.path.isfile(dir+'/'+filename):
+        for directory in os.environ['PATH'].split(':'):
+            if os.path.isfile(directory + '/' + filename):
                 return True
         return False
 
@@ -65,9 +66,9 @@ class toolbox:
         try:
             os.symlink(source, dest)
             return
-        except OSError:
+        except OSError as e:
             # probably should try copying
-            logging.error('cannot link {} to {}: {}', source, dest)
+            logging.error('cannot link {} to {}: {}'.format(source, dest, e.args[0]))
             pass
 
     @staticmethod
@@ -83,23 +84,27 @@ class toolbox:
 
     @staticmethod
     def sidecar_is_xmp(path):
-        return  toolbox.get_extension(path) == '.xmp'
+        return toolbox.get_extension(path) == '.xmp'
+
+    @staticmethod
+    def file_is_sidecar(path):
+        return toolbox.get_extension(path) in ('.xmp', '.thm', '.lrv')
 
     @staticmethod
     def get_sidecar_name(mediafilename, path):
         if not path:
             return None
 
-        ext=toolbox.get_extension(path)
+        ext = toolbox.get_extension(path)
         if ext == '.xmp':
             return None
 
-        filename=toolbox.get_basename(mediafilename)+ext
+        filename = toolbox.get_basename(mediafilename) + ext
         return filename
 
     @staticmethod
     def get_xmp_name(mediafilename):
-        filename=toolbox.get_basename(mediafilename)+'.xmp'
+        filename = toolbox.get_basename(mediafilename) + '.xmp'
         return filename
 
     @staticmethod
