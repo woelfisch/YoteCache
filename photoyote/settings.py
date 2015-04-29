@@ -10,7 +10,7 @@ https://docs.djangoproject.com/en/1.7/ref/settings/
 
 import os
 import logging
-from photos.tools import toolbox
+from photos import tools
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -78,7 +78,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.7/howto/static-files/
 
 STATIC_URL = '/static/'
-IMAGE_URL = STATIC_URL+'images/'
+IMAGE_URL = STATIC_URL + 'images/'
 
 try:
     from local_settings import *
@@ -88,20 +88,20 @@ except ImportError:
     except:
         pass
 
-WWWUSER = toolbox.www_user()
-WWWGROUP = toolbox.www_group()
+WWWUSER = tools.www_user()
+WWWGROUP = tools.www_group()
 
 MEDIA_DIR = '/data/camera/'
-SOURCE_DIR = MEDIA_DIR+'import/'  # contains dirs with imported images
-WEB_DIR = MEDIA_DIR+'web/'      # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
-EXPORT_DIR = MEDIA_DIR+'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar from jpeg
-THUMBNAIL_DIR = 'tn/'    # WEB_DIR + subdir + THUMBNAIL_DIR + filename
+SOURCE_DIR = MEDIA_DIR + 'import/'  # contains dirs with imported images
+WEB_DIR = MEDIA_DIR + 'web/'        # just hardlink if import file is JPEG, add XMP sidecar data w/ rating
+EXPORT_DIR = MEDIA_DIR + 'export/'  # hardlink image from import if not marked as rejected, hardlink xmp sidecar
+THUMBNAIL_DIR = 'tn/'               # WEB_DIR + subdir + THUMBNAIL_DIR + filename
 PREVIEW_DIR = 'preview/'
 os.environ['TMPDIR'] = '/data/tmp/'
 
 STATUS_USE_FILE = False
 if STATUS_USE_FILE:
-    STATUS_DIR = WEB_DIR+'status/'
+    STATUS_DIR = WEB_DIR + 'status/'
     IMPORT_STATUS = 'import.json'
     PROCESS_STATUS = 'process.json'
 else:
@@ -121,7 +121,7 @@ if DEBUG:
     )
     IMAGE_URL = STATIC_URL
 
-LOGFILE = MEDIA_DIR+'log.txt'
+LOGFILE = MEDIA_DIR + 'log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(module)s:%(funcName)s:%(lineno)d %(message)s'
 LOGGER_HANDLE = 'photoyote'
 if DEBUG:
@@ -142,26 +142,26 @@ if IMAGE_LIB == 'wand':
     WEBSIZE = '720x720>'
 else:
     THUMBNAILSIZE = (128, 128)
-    WEBSIZE = (720,720)
+    WEBSIZE = (720, 720)
 
-DEFAULT_CATALOG='uncataloged'
-UNKNOWN_MIME_TYPE='application/octet-stream'
+DEFAULT_CATALOG = 'uncataloged'
+UNKNOWN_MIME_TYPE = 'application/octet-stream'
 METADATA_EXTENSIONS = ('.thn', '.xmp')
 
-PATH_MAX = os.pathconf('.', 'PC_PATH_MAX') # how brain damaged is this?!
+PATH_MAX = os.pathconf('.', 'PC_PATH_MAX')  # how brain damaged is this?!
 NAME_MAX = os.pathconf('.', 'PC_NAME_MAX')
 
-VIDEO_PREVIEWTIME=30
-VIDEO_WEBSIZE=768
-VIDEO_THUMBNAILSIZE=128
+VIDEO_PREVIEWTIME = 30
+VIDEO_WEBSIZE = 768
+VIDEO_THUMBNAILSIZE = 128
 
-if toolbox.is_in_path('avconv'):
-    FFMPEG_COMMAND='avconv'
-    FFMPEG_FILTER='select=eq(pict_type\,I),scale={:d}:-1,format=rgb8'
-    FFMPEG_EXTRA=['-pix_fmt', 'rgb24']
-elif toolbox.is_in_path('ffmpeg'):
-    FFMPEG_COMMAND='ffmpeg'
-    FFMPEG_FILTER='select=eq(pict_type\,PICT_TYPE_I),scale={:d}:-1'
-    FFMPEG_EXTRA=[]
+if tools.is_in_path('avconv'):
+    FFMPEG_COMMAND = 'avconv'
+    FFMPEG_FILTER = 'select=eq(pict_type\,I),scale={:d}:-1,format=rgb8'
+    FFMPEG_EXTRA = ['-pix_fmt', 'rgb24']
+elif tools.is_in_path('ffmpeg'):
+    FFMPEG_COMMAND = 'ffmpeg'
+    FFMPEG_FILTER = 'select=eq(pict_type\,PICT_TYPE_I),scale={:d}:-1'
+    FFMPEG_EXTRA = []
 else:
-    FFMPEG_COMMAND=None
+    FFMPEG_COMMAND = None

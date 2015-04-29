@@ -10,6 +10,7 @@ from photos.templatetags.photoyotetags import proxyfile
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 
+
 def my_unlink(filename):
     if settings.DEBUG:
         sys.stderr.write('unlink({})\n'.format(filename))
@@ -23,8 +24,9 @@ def my_unlink(filename):
         logging.info('cleanup_db: removing file {}'.format(filename))
         os.unlink(filename)
 
+
 def my_rmdir(path):
-    path=settings.SOURCE_DIR+path
+    path = settings.SOURCE_DIR + path
     while path and path != settings.SOURCE_DIR[:-1]:
         if settings.DEBUG:
             sys.stderr.write('rmdir({})\n'.format(path))
@@ -33,29 +35,31 @@ def my_rmdir(path):
         except OSError as e:
             if e.args[0] == os.errno.ENOTEMPTY:
                 return
-        path=os.path.dirname(path)
+        path = os.path.dirname(path)
+
 
 class Command(BaseCommand):
     """
     Remove entries of deleted photos from the database
     """
+
     def handle(self, *args, **options):
         logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
         for m in MediaFile.objects.all():
-            source_dir = settings.SOURCE_DIR+m.media_dir.path+'/'
-            source_file = source_dir+m.media_file
+            source_dir = settings.SOURCE_DIR + m.media_dir.path + '/'
+            source_file = source_dir + m.media_file
 
             if not os.path.isfile(source_file):
                 if settings.DEBUG:
                     sys.stderr.write('{} is gone, removing entry for {}\n'.format(source_file, m.filename))
                 logging.info('cleanup_db: {} is gone, removing entry for {}'.format(source_file, m.filename))
 
-                if (m.sidecar_file):
-                    my_unlink(source_dir+m.sidecar_file)
+                if m.sidecar_file:
+                    my_unlink(source_dir + m.sidecar_file)
 
                 proxy = proxyfile(m)
                 if proxy:
-                    proxy=os.path.basename(proxy)
+                    proxy = os.path.basename(proxy)
                     for proxy_sub_dir in ('', settings.THUMBNAIL_DIR, settings.PREVIEW_DIR):
                         my_unlink(settings.WEB_DIR + m.media_dir.path + '/' + proxy_sub_dir + proxy)
 

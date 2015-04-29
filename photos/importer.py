@@ -9,7 +9,7 @@ import magic  # python-magic
 from gi.repository import GExiv2  # libgexiv2-2, typelib-1_0-GExiv2-0_4, python-gobject2
 
 from django.conf import settings
-from photos.tools import toolbox
+from photos import tools
 from photos.statuswriter import StatusWriter
 from photos.models import MimeType, Catalog, MediaDir, MediaFile
 
@@ -135,8 +135,11 @@ class ImportMedia(object):
         else:
             return
 
-        # ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif'''
-        # avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif'''
+        # ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 \
+        #        -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif
+        #
+        # avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 \
+        #        -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif
 
         call([settings.FFMPEG_COMMAND, '-i', source, '-vsync', '0',
               '-vf', settings.FFMPEG_FILTER.format(resize_to),
@@ -289,7 +292,7 @@ class ImportMedia(object):
         try:
             mediadir = settings.WEB_DIR + mediareldir
             jpegfullpath = mediadir + '/' + jpegfilename
-            toolbox.mkdir(mediadir)
+            tools.mkdir(mediadir)
             self.create_proxy(source_file, jpegfullpath, self.PROXY_FULLSIZE)
         except Exception as e:
             raise e
@@ -298,7 +301,7 @@ class ImportMedia(object):
         try:
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir + '/' + jpegfilename
-            toolbox.mkdir(tndir)
+            tools.mkdir(tndir)
             self.create_proxy(source_file, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             os.unlink(jpegfullpath)
@@ -308,7 +311,7 @@ class ImportMedia(object):
         try:
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir + '/' + jpegfilename
-            toolbox.mkdir(webimgdir)
+            tools.mkdir(webimgdir)
             self.create_proxy(source_file, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(jpegfullpath)
@@ -355,7 +358,7 @@ class ImportMedia(object):
         try:
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
             tnfullpath = tndir + '/' + giffilename
-            toolbox.mkdir(tndir)
+            tools.mkdir(tndir)
             self.create_video_proxy(source_file, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             raise e
@@ -364,7 +367,7 @@ class ImportMedia(object):
         try:
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
             webimgfullpath = webimgdir + '/' + giffilename
-            toolbox.mkdir(webimgdir)
+            tools.mkdir(webimgdir)
             self.create_video_proxy(source_file, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(tnfullpath)

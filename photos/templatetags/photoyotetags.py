@@ -1,7 +1,7 @@
 import os.path
 from django.conf import settings
 from django import template
-from photos.tools import toolbox
+from photos import tools
 
 register = template.Library()
 
@@ -19,7 +19,7 @@ def proxyfile(media_file):
     else:
         return None
 
-    return toolbox.get_basename(media_file.media_dir.path + '/' + media_file.media_file) + extension
+    return tools.get_basename(media_file.media_dir.path + '/' + media_file.media_file) + extension
 
 
 @register.filter(name='thumbnail')
@@ -29,11 +29,11 @@ def thumbnail(media_file):
         return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
 
     (directory, name) = os.path.split(proxy)
-    basename = directory + '/' + settings.THUMBNAIL_DIR + name
-    if not os.path.exists(settings.WEB_DIR + basename):
+    thumbnail_path = directory + '/' + settings.THUMBNAIL_DIR + name
+    if not os.path.exists(settings.WEB_DIR + thumbnail_path):
         return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
 
-    return settings.IMAGE_URL + basename
+    return settings.IMAGE_URL + thumbnail_path
 
 
 @register.filter(name='preview')
@@ -43,11 +43,11 @@ def preview(media_file):
         return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
 
     (directory, name) = os.path.split(proxy)
-    basename = directory + '/' + settings.PREVIEW_DIR + name
-    if not os.path.exists(settings.WEB_DIR + basename):
+    preview_path = directory + '/' + settings.PREVIEW_DIR + name
+    if not os.path.exists(settings.WEB_DIR + preview_path):
         return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
 
-    return settings.IMAGE_URL + basename
+    return settings.IMAGE_URL + preview_path
 
 
 @register.filter(name='fullsize')
@@ -108,10 +108,10 @@ def star_rating(rating, **kwargs):
         style = None
 
     def span_with_style(icon):
-        rv = '<span class="glyphicon ' + icon + '"'
+        span = '<span class="glyphicon ' + icon + '"'
         if style:
-            rv += 'style="' + style + '"'
-        return rv + "></span>"
+            span += 'style="' + style + '"'
+        return span + "></span>"
 
     if not rating:
         if not fillup: return span_with_style('')

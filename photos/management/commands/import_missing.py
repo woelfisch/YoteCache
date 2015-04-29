@@ -4,7 +4,7 @@ import os
 import os.path
 import logging
 from django.conf import settings
-from photos.tools import toolbox
+from photos import tools
 from photos.models import MimeType, Catalog, MediaDir, MediaFile
 from photos.templatetags.photoyotetags import proxyfile
 from photos.importer import ImportMedia
@@ -34,7 +34,7 @@ class Command(BaseCommand):
             return
 
         for f in files:
-            if toolbox.file_is_sidecar(f):
+            if tools.file_is_sidecar(f):
                 continue
 
             # wait if import was started while we are iterating of the files...

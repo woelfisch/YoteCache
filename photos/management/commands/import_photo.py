@@ -3,7 +3,7 @@ import logging
 from django.core.management.base import BaseCommand, CommandError
 from optparse import make_option
 from django.conf import settings
-from photos.tools import toolbox
+from photos import tools
 from photos.importer import ImportMedia
 
 
@@ -21,7 +21,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
-        toolbox.mkdir(settings.EXPORT_DIR)
+        tools.mkdir(settings.EXPORT_DIR)
 
         im = ImportMedia(force=options['force_mode'], lock=True, name='import_photo')
 

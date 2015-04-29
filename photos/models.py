@@ -6,7 +6,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from model_utils import FieldTracker
-from tools import toolbox
+from photos import tools
 from gi.repository import GExiv2
 
 if settings.DEBUG_MD_LOCKING:
@@ -46,7 +46,7 @@ class Catalog(models.Model):
 
     def save(self, *args, **kwargs):
         super(Catalog, self).save(*args, **kwargs)
-        toolbox.mkdir(self.get_path())
+        tools.mkdir(self.get_path())
 
     def delete(self, *args, **kwargs):
         try:
@@ -163,7 +163,7 @@ class MediaDir(models.Model):
         if self.locked_by_pid == -1:
             return False
 
-        if toolbox.process_dead(self.locked_by_pid):
+        if tools.process_dead(self.locked_by_pid):
             self.unlock()
             return False
 
@@ -199,7 +199,7 @@ class MediaFile(models.Model):
     tracker = FieldTracker(fields=['catalog', 'rejected', 'rating', 'label'])
 
     class Meta:
-        unique_together = (('media_dir', 'media_file'))
+        unique_together = ('media_dir', 'media_file')
 
     def __str__(self):
         return self.filename
@@ -251,18 +251,18 @@ class MediaFile(models.Model):
     def link_exports(self):
         destdir = self.catalog.get_path()
         logging.info('destdir is {}'.format(destdir))
-        toolbox.mkdir(destdir)
-        toolbox.link(self.media_source_full_path(), destdir + self.filename)
-        sidecar = toolbox.get_sidecar_name(self.filename, self.sidecar_file)
+        tools.mkdir(destdir)
+        tools.link(self.media_source_full_path(), destdir + self.filename)
+        sidecar = tools.get_sidecar_name(self.filename, self.sidecar_file)
         if sidecar:
-            toolbox.link(self.sidecar_source_full_path(), destdir + sidecar)
+            tools.link(self.sidecar_source_full_path(), destdir + sidecar)
 
     def unlink_exports(self, catalog):
         try:
             directory = catalog.get_path()
             for filename in (self.filename,
-                             toolbox.get_sidecar_name(self.filename, self.sidecar_file),
-                             toolbox.get_xmp_name(self.filename)):
+                            tools.get_sidecar_name(self.filename, self.sidecar_file),
+                            tools.get_xmp_name(self.filename)):
                 if filename and os.path.isfile(directory + filename):
                     os.unlink(directory + filename)
         except OSError:
@@ -281,8 +281,8 @@ class MediaFile(models.Model):
         sidecar_label = exif.get_tag_interpreted_string('Xmp.xmp.Label')
         sidecar_rating = exif.get_tag_long('Xmp.xmp.Label')
 
-        sidecar_is_xmp = toolbox.sidecar_is_xmp(self.sidecar_file)
-        xmpfile = self.catalog.get_path() + toolbox.get_xmp_name(self.filename)
+        sidecar_is_xmp = tools.sidecar_is_xmp(self.sidecar_file)
+        xmpfile = self.catalog.get_path() + tools.get_xmp_name(self.filename)
         if sidecar_is_xmp:
             try:
                 os.unlink(xmpfile)

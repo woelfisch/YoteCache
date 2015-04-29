@@ -4,7 +4,7 @@ import json
 from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
-from tools import toolbox
+import photos.tools
 from photos.models import ProgressStatus
 
 
@@ -19,7 +19,7 @@ class StatusWriter:
     def __init__(self, statusname, filename=None, dirname=None, text=None):
         if settings.STATUS_USE_FILE:
             if not os.path.isdir(settings.STATUS_DIR):
-                toolbox.mkdir(settings.STATUS_DIR)
+                tools.mkdir(settings.STATUS_DIR)
         else:
             ProgressStatus.objects.get_or_create(name=statusname)
             self.status = ProgressStatus.objects.filter(name=statusname)

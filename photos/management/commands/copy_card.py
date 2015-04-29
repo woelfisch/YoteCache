@@ -13,7 +13,7 @@ from datetime import datetime
 from uuid import uuid4
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
-from photos.tools import toolbox
+from photos import tools
 from photos.statuswriter import StatusWriter
 
 
@@ -166,7 +166,7 @@ class CopyFlash(GenericCopyFramework):
             return
 
         destdir = os.path.dirname(destpath)
-        toolbox.mkdir(destdir)
+        tools.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
 
@@ -296,7 +296,7 @@ class _CopyPTP(GenericCopyFramework):
             return
 
         destdir = os.path.dirname(destpath)
-        toolbox.mkdir(destdir)
+        tools.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
         try:
@@ -421,7 +421,7 @@ class _CopyPTP(GenericCopyFramework):
             return
 
         destdir = os.path.dirname(destpath)
-        toolbox.mkdir(destdir)
+        tools.mkdir(destdir)
 
         logging.info('Copying file {}'.format(name))
 
