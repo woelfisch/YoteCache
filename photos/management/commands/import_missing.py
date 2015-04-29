@@ -48,9 +48,14 @@ class Command(BaseCommand):
                     # unsupported media type, do not check for proxy files
                     continue
 
+                proxy_sub_dir_list=(settings.THUMBNAIL_DIR, settings.PREVIEW_DIR)
+                # for performance reasons, do not convert movie clips to fullsize animated GIFs...
+                if not media.mime_type.type.startswith('video/'):
+                    proxy_sub_dir_list += ('', )
+
                 proxy_dir, proxy_name = os.path.split(pf)
                 has_proxy = True
-                for proxy_sub_dir in ('', settings.THUMBNAIL_DIR, settings.PREVIEW_DIR):
+                for proxy_sub_dir in proxy_sub_dir_list:
                     proxy = settings.WEB_DIR + proxy_dir + '/' + proxy_sub_dir + proxy_name
                     if not os.path.isfile(proxy):
                         has_proxy = False
