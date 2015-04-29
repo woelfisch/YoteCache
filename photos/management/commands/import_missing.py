@@ -29,10 +29,15 @@ class Command(BaseCommand):
             unconditionally = True
             reason = 'new directory'
 
+        # skip if import is running
+        if mediadir.is_locked():
+            return
+
         for f in files:
             if toolbox.file_is_sidecar(f):
                 continue
 
+            # wait if import was started while we are iterating of the files...
             while mediadir.is_locked():
                 sleep(10)
 
@@ -71,7 +76,7 @@ class Command(BaseCommand):
             if settings.DEBUG:
                 sys.stderr.write('importing {} ({})\n'.format(name, reason))
 
-            logging.info("import_missing: importing {} ({})".format(name, reason))
+            logging.info('import_missing: importing {} ({})'.format(name, reason))
             self.importer.do_import(name)
 
     def handle(self, *args, **options):
