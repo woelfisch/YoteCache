@@ -142,13 +142,55 @@
         });
     }
 
+    function get_catalog_by_media_id(id) {
+        var catalog=$("#"+id).parent();
+        if ($(catalog).length == 0) {
+            catalog=$(".catalog").first();
+            media_id=$(catalog).children("a").first().attr("id");
+            window.location.hash=media_id;
+        }
+
+        return catalog;
+    }
+
+    function unellipse(catalog) {
+        $(catalog).find(".expand > span").removeClass("glyphicon-collapse-down").addClass("glyphicon-collapse-up");
+        $(catalog).children(".ellipse").hide();
+        $(catalog).children(".hideable").show();
+        $(catalog).prop("ellipsed", false);
+    }
+
+    function ellipse(catalog) {
+        $(catalog).find(".expand > span").removeClass("glyphicon-collapse-up").addClass("glyphicon-collapse-down");
+        $(catalog).children(".ellipse").show();
+        $(catalog).find(".hideable").hide();
+        $(catalog).prop("ellipsed", true);
+    }
+
+    function toggle_expansion(catalog) {
+        if ($(catalog).prop("ellipsed")) {
+            unellipse(catalog);
+        } else {
+            ellipse(catalog);
+        }
+    }
+
+    var media_id = window.location.hash.substring(1);
     $(document).ready(function(){
+        var catalog = get_catalog_by_media_id(media_id)
+        if ($("#"+media_id).hasClass("hideable") || ($(catalog).find("a").length < 128))
+            unellipse(catalog);
+
+        $(".expand").on("click", function() { toggle_expansion($(this).parent().parent()) });
+        $(".ellipse").on("click", function() { toggle_expansion($(this).parent()) });
+
         $("#photo-process-dismiss").on("click", clear_process_status);
         $("#photo-process-reload").on("click", function() { document.location.reload(true); });
         $("#card-copy-dismiss").on("click", clear_copy_status);
         get_status();
     });
 </script>
+
 <h1>PhotoYote</h1>
 <div id="card-copy-status" class="alert alert-info" style="display: none">
     <div>
@@ -199,10 +241,16 @@
 </div>
 
 {% for catalog, media_list in all_media_list %}
-<h2><a href="{% url 'lighttable' catalog.id %}" data-ajax="false">{{catalog}}</a></h2>
+<div class="catalog" id="catalog-{{catalog.id}}">
+<h2>
+    {% if media_list|length > 8 %}<a href="#" class="expand"><span class="glyphicon glyphicon-collapse-down"></span></a>{% else %}<span class="glyphicon glyphicon-expand" style="color: grey"></span>{% endif %}
+    <a href="{% url 'lighttable' catalog.id %}" data-ajax="false">{{catalog}}</a>
+</h2>
 {% for media in media_list %}
-<a href="{% url 'lighttable' catalog.id %}#{{media.id}}" id="{{media.id}}" data-ajax="false"><img src="{{media|thumbnail}}" /></a>
+<a href="{% url 'lighttable' catalog.id %}#{{media.id}}" id="{{media.id}}" {% if forloop.counter > 4 and forloop.counter < media_list|length|add:-3 %}class="hideable" style="display: none"{%endif%} data-ajax="false"><img src="{{media|thumbnail}}"></a>
+{% if forloop.counter == 4 and media_list|length > 8 %}<a href="#" class="ellipse"> <span class="glyphicon glyphicon-option-horizontal"></span> </a>{% endif %}
 {% endfor %}
+</div>
 {% endfor %}
 
 </body>
