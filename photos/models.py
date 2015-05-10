@@ -200,6 +200,10 @@ class MediaFile(models.Model):
 
     class Meta:
         unique_together = ('media_dir', 'media_file')
+        permissions = (
+            ("view_mediafile", "Can view media file"),
+            ("move_mediafile", "Can move media file")
+        )
 
     def __str__(self):
         return self.filename

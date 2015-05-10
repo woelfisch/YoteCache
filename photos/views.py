@@ -1,15 +1,25 @@
 import re
 import json
 from datetime import datetime, timedelta
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import requires_csrf_token, csrf_exempt
 from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.utils import timezone
 from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
+from django.core.exceptions import PermissionDenied
+import sys
 
-# Create your views here.
+_PERM_VIEW='photos.view_mediafile'
+_PERM_CHANGE='photos.change_mediafile'
+_PERM_MOVE='photos.move_mediafile'
+
+@login_required
 def index(request):
+    if not request.user.has_perm(_PERM_VIEW):
+        raise PermissionDenied
+
     all_media_list = []
     catalog_list = Catalog.objects.order_by('id')
     for catalog in catalog_list:
@@ -20,8 +30,11 @@ def index(request):
         all_media_list.append([catalog, media_files])
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
 
-
+@login_required
 def lighttable(request, catalog_id):
+    if not request.user.has_perm(_PERM_VIEW):
+        return HttpResponseForbidden()
+
     catalog = get_object_or_404(Catalog, id=catalog_id)
     filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')
 
@@ -42,9 +55,16 @@ def lighttable(request, catalog_id):
 
 @requires_csrf_token
 def metadata(request, media_id=None):
+    if not request.user.has_perm(_PERM_VIEW):
+        return HttpResponseForbidden()
+
     media = get_object_or_404(MediaFile, id=media_id)
+
+    may_modify = request.user.has_perm(_PERM_CHANGE)
+    may_move = request.user.has_perm(_PERM_MOVE)
+
     for item in request.POST:
-        if item == 'rating':
+        if item == 'rating' and may_modify:
             try:
                 rating = int(request.POST[item])
                 if (rating < 0) or (rating > 5):
@@ -52,15 +72,15 @@ def metadata(request, media_id=None):
                 media.rating = rating
             except:
                 pass
-        elif item == 'label':
+        elif item == 'label' and may_modify:
             try:
                 media.label = request.POST[item]
             except:
                 pass
-        elif item == 'rejected':
+        elif item == 'rejected' and may_modify:
             rejected = request.POST[item]
             media.rejected = rejected.lower() == 'true'
-        elif item == 'catalog':
+        elif item == 'catalog' and may_move:
             catalog_name = re.sub('[\\\\/]\s?', '', request.POST[item])
             (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
             media.catalog = catalog
@@ -73,6 +93,9 @@ def metadata(request, media_id=None):
 
 @requires_csrf_token
 def bulk(request):
+    if not request.user.has_perm(_PERM_VIEW):
+        return HttpResponseForbidden()
+
     if 'json' not in request.POST:
         return HttpResponseBadRequest('<p>Missing parameter in POST</p>')
 
@@ -87,6 +110,10 @@ def bulk(request):
         item = action['select']['item']
     except:
         return HttpResponseBadRequest('<p>Select item missing</p>')
+
+    may_modify = request.user.has_perm(_PERM_CHANGE)
+    may_move = request.user.has_perm(_PERM_MOVE)
+
 
     value = ''
     op = ''
@@ -170,6 +197,12 @@ def bulk(request):
                 value = catalog
         except:
             return HttpResponseBadRequest('<p>Item to set missing or wrong</p>')
+
+    if item in ['reject', 'publish', 'rating', 'label'] and not may_modify:
+        raise PermissionDenied
+
+    if item == 'catalog' and not may_move:
+        raise PermissionDenied
 
     # media_list.update() won't call the model save functions, hence iterate over the list
     for media in media_list:

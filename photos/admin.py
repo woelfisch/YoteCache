@@ -13,8 +13,8 @@ class CatalogAdmin(admin.ModelAdmin):
 class MimeTypeAdmin(admin.ModelAdmin):
     list_display = ('type', 'hide', 'copy')
 
-
 # Register your models here.
+
 admin.site.register(MediaDir, MediaDirAdmin)
 admin.site.register(MediaFile, MediaFileAdmin)
 admin.site.register(Catalog, CatalogAdmin)

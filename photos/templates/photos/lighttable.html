@@ -63,6 +63,9 @@
     {% else %}{ id: "noimage", preview: "{{none|preview}}", fullsize: "{{none|fullsize}}" },
     {% endif %}];
 
+    var may_edit = "{{perms.photos.change_mediafile}}" == "True";
+    var may_move = "{{perms.photos.move_mediafile}}" == "True";
+
     function get_index_by_id(id) {
         for (idx=0; idx < media_list.length; idx++) {
             if (media_list[idx].id == id) return idx;
@@ -735,16 +738,34 @@
         $("div.filmstrip").on("mousedown vmousedown", slide_start_scroll);
         $("div.filmstrip").on("mouseup mouseleave vmouseup", slide_stop_scroll);
 
-        $("#media-rating > span").on("click", set_rating);
-        $("#media-reject").on("click", toggle_reject);
-        $(".media-label-link").on("click", set_label);
-        
-        $(".media-catalog-input,.bulk-action-catalog-input").on("click", function(ev) {
-            ev.stopPropagation();
-        });
+        if (may_edit) {
+            $("#media-reject").prop("disabled", false);
+            $("#media-label").prop("disabled", false);
+
+            $("#media-rating > span").on("click", set_rating);
+            $("#media-reject").on("click", toggle_reject);
+            $(".media-label-link").on("click", set_label);
+        } else {
+            $("#media-reject").prop("disabled", true);
+            $("#media-label").prop("disabled", true);
+            $(".bulk-action-edit").addClass("disabled", true);
+        }
+
+        if (may_move) {
+            $("#media-bulk").prop("disabled", false);
+            $("#media-catalog").prop("disabled", false);
+            $(".media-catalog-input,.bulk-action-catalog-input").on("click", function(ev) {
+                ev.stopPropagation();
+            });
     
-        $(".media-catalog-link").on("click", set_catalog);
-        $(".media-catalog-input").on("change", add_catalog);
+            $(".media-catalog-link").on("click", set_catalog);
+            $(".media-catalog-input").on("change", add_catalog);
+        } else {
+            $("#media-catalog").prop("disabled", true);
+            $(".bulk-action-move").addClass("disabled");
+        }
+
+        $("#media-bulk").prop("disabled", !(may_edit || may_move));
 
         $.fn.modal.Constructor.prototype.enforceFocus = function() {};
         $("#media-bulk").on("click", bulk_modal_open);
@@ -989,19 +1010,19 @@
                         <span class="caret"></span>
                     </button>
                     <ul class="dropdown-menu" role="menu">
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                        <li role="presentation" class=" bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-star"></span> Set rating
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-flag"></span> Set label
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                        <li role="presentation" class="bulk-action-move"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-trash" style="color: red"></span> Reject
                         </a></li>
-                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
                             <span class="glyphicon glyphicon-ok" style="color: green"></span> Publish
                         </a></li>
                     </ul>

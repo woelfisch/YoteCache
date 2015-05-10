@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">
+    <span class="glyphicon glyphicon-exclamation-sign"></span>
+    Your username and password didn't match. Please try again.
+</div>
+{% endif %}
+<form method="post" action="{% url 'django.contrib.auth.views.login' %}" data-ajax="false">
+{% csrf_token %}
+<div class="form-group">
+    {{ form.username.label_tag }}
+    {{ form.username }}
+</div>
+<div class="form-group">
+    {{ form.password.label_tag }}
+    {{ form.password }}
+</div>
+<input type="submit" class="btn btn-default" value="Login" />
+<input type="hidden" name="next" value="{{ next }}" />
+</form>
+{% endblock %}
+{% block about %}{% endblock %}

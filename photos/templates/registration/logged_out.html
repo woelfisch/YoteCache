@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="alert alert-success" role="alert">
+    <span class="glyphicon glyphicon-info"></span>
+    You've been logged out.
+</div>
+
+<a href="{% url 'django.contrib.auth.views.login' %}?next=/" class="btn btn-default" data-ajax="false">
+    <span class="glyphicon glyphicon-log-in"></span> Log in
+</a>
+
+{% endblock %}
+{% block about %}{% endblock %}
