@@ -1,14 +1,8 @@
 from optparse import make_option
-import re
 import os
 import os.path
-from django.conf import settings
-from photos.tools import toolbox
-from photos.models import MimeType, Catalog, MediaDir, MediaFile
-
-from dateutil import tz
+from photos.models import MediaDir, MediaFile
 from django.core.management.base import BaseCommand, CommandError
-from django.conf import settings
 
 
 class Command(BaseCommand):
