@@ -177,10 +177,6 @@ class MediaFile(models.Model):
     media_file = models.CharField(max_length=settings.NAME_MAX, null=True, help_text='Name of original file')
     sidecar_file = models.CharField(max_length=settings.NAME_MAX, null=True, help_text='Name of sidecar file')
 
-    # drop after conversion on staging
-    # mediafile_path = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Path to original file')
-    # sidecar_path = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text='Path to sidecar file')
-
     filename = models.CharField(max_length=settings.PATH_MAX, unique=True, help_text='Filename for export')
     mime_type = models.ForeignKey(MimeType, help_text='MIME type of the file',
                                   on_delete=models.SET(get_default_mime_type))
