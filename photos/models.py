@@ -325,6 +325,8 @@ class ProgressStatus(models.Model):
     directory = models.ForeignKey(MediaDir, null=True, help_text="Directory operating on")
     timestamp = models.DateTimeField(default=timezone.now())
 
+    objects = ProgressStatusManager()
+
     def __init__(self, *args, **kwargs):
         super(ProgressStatus, self).__init__(*args, **kwargs)
 
