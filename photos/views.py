@@ -1,7 +1,8 @@
 import re
 import json
 from datetime import datetime, timedelta
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, REDIRECT_FIELD_NAME
+from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.csrf import requires_csrf_token, csrf_exempt
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
@@ -9,14 +10,22 @@ from django.utils import timezone
 from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
+from django.conf import settings
+from functools import wraps
 import sys
 
 _PERM_VIEW='photos.view_mediafile'
 _PERM_CHANGE='photos.change_mediafile'
 _PERM_MOVE='photos.move_mediafile'
 
-@login_required
+
+def login_redirector(request):
+    return redirect_to_login(request.get_full_path(), request.build_absolute_uri(settings.LOGIN_URL))
+
 def index(request):
+    if not request.user.is_authenticated():
+        return login_redirector(request)
+
     if not request.user.has_perm(_PERM_VIEW):
         raise PermissionDenied
 
