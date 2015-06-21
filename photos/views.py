@@ -20,7 +20,8 @@ _PERM_MOVE='photos.move_mediafile'
 
 
 def login_redirector(request):
-    return redirect_to_login(request.get_full_path(), request.build_absolute_uri(settings.LOGIN_URL))
+    prefix=request.path.rstrip(request.path_info)
+    return redirect_to_login(request.get_full_path(), prefix+settings.LOGIN_URL)
 
 def index(request):
     if not request.user.is_authenticated():
