@@ -1,7 +1,6 @@
 import re
 import json
 from datetime import datetime, timedelta
-from django.contrib.auth.decorators import login_required, REDIRECT_FIELD_NAME
 from django.contrib.auth.views import redirect_to_login
 from django.views.decorators.csrf import requires_csrf_token, csrf_exempt
 from django.shortcuts import render, get_object_or_404
@@ -11,14 +10,15 @@ from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
 from django.conf import settings
-from functools import wraps
-import sys
 
 _PERM_VIEW='photos.view_mediafile'
 _PERM_CHANGE='photos.change_mediafile'
 _PERM_MOVE='photos.move_mediafile'
 
-
+# the @login_required decorator doesn't work here as it does not realize that the login service
+# might be behind a prefix. Using an own decorator either means copy-pasting most of
+# django.contrib.auth.decorators.login_required with a one-line change, or getting lost in three
+# levels of indirection...
 def login_redirector(request):
     prefix=request.path.rstrip(request.path_info)
     return redirect_to_login(request.get_full_path(), prefix+settings.LOGIN_URL)
@@ -40,10 +40,12 @@ def index(request):
         all_media_list.append([catalog, media_files])
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
 
-@login_required
 def lighttable(request, catalog_id):
+    if not request.user.is_authenticated():
+        return login_redirector(request)
+
     if not request.user.has_perm(_PERM_VIEW):
-        return HttpResponseForbidden()
+        raise PermissionDenied
 
     catalog = get_object_or_404(Catalog, id=catalog_id)
     filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')
