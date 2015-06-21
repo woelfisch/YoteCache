@@ -75,8 +75,8 @@ class StatusWriter:
                 raise e
         else:
             try:
-                self.status.update(**statusdict)
+                self.status.update_record(**statusdict)
             except Exception as e:
-                print("{}".format(e.message))
+                print("write_status(): {}".format(e.message))
                 raise e
 

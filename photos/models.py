@@ -330,3 +330,9 @@ class ProgressStatus(models.Model):
 
     def natural_key(self):
         return self.name
+
+    def update_record(self, **status):
+        if 'directory' in status:
+            directory = MediaFile.objects.get_or_create(status['directory'])
+            status['directory'] = directory
+        self.update(status)
