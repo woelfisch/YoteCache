@@ -306,13 +306,6 @@ class MediaFile(models.Model):
         exif.set_tag_string('Xmp.xmp.Rating', self.rating.__str__())
         exif.save_file(xmpfile)
 
-class ProgressStatusManager(models.Manager):
-    def update_record(self, **status):
-        if 'directory' in status:
-            directory = MediaFile.objects.get_or_create(status['directory'])
-            status['directory'] = directory
-        self.update(status)
-
 class ProgressStatus(models.Model):
     name = models.CharField(max_length=32, unique=True, help_text="Name of this status")
     running = models.BooleanField(default=False, help_text="Operation running")
@@ -322,10 +315,8 @@ class ProgressStatus(models.Model):
     total_items = models.BigIntegerField(default=0, help_text="Total number of items")
     current_item = models.BigIntegerField(default=0, help_text="Current item number")
     filename = models.CharField(max_length=settings.NAME_MAX, null=True, blank=True, help_text="Filename operating on")
-    directory = models.ForeignKey(MediaDir, null=True, help_text="Directory operating on")
+    directory = models.CharField(max_length=settings.PATH_MAX, null=True, blank=True, help_text="Directory operating on")
     timestamp = models.DateTimeField(default=timezone.now())
-
-    objects = ProgressStatusManager()
 
     def __init__(self, *args, **kwargs):
         super(ProgressStatus, self).__init__(*args, **kwargs)
