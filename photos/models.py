@@ -306,6 +306,12 @@ class MediaFile(models.Model):
         exif.set_tag_string('Xmp.xmp.Rating', self.rating.__str__())
         exif.save_file(xmpfile)
 
+class ProgressStatusManager(models.Manager):
+    def update_record(self, **status):
+        if 'directory' in status:
+            directory = MediaFile.objects.get_or_create(status['directory'])
+            status['directory'] = directory
+        self.update(status)
 
 class ProgressStatus(models.Model):
     name = models.CharField(max_length=32, unique=True, help_text="Name of this status")
@@ -330,9 +336,3 @@ class ProgressStatus(models.Model):
 
     def natural_key(self):
         return self.name
-
-    def update_record(self, **status):
-        if 'directory' in status:
-            directory = MediaFile.objects.get_or_create(status['directory'])
-            status['directory'] = directory
-        self.update(status)
