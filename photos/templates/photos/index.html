@@ -232,7 +232,7 @@
     </div>
 </div>
 
-{% for catalog, media_list in all_media_list %}
+{% for catalog, media_list, count in all_media_list %}
 <div class="catalog" id="catalog-{{catalog.id}}">
 <h3>
     {% if media_list|length > 8 %}<a href="#" class="expand"><span class="glyphicon glyphicon-collapse-down"></span></a>{% else %}<span class="glyphicon glyphicon-expand" style="color: grey"></span>{% endif %}
@@ -241,6 +241,9 @@
 {% for media in media_list %}
 <a href="{% url 'lighttable' catalog.id %}#{{media.id}}" id="{{media.id}}" {% if forloop.counter > 4 and forloop.counter < media_list|length|add:-3 %}class="hideable" style="display: none"{%endif%} data-ajax="false"><img src="{{media|thumbnail}}"></a>
 {% if forloop.counter == 4 and media_list|length > 8 %}<a href="#" class="ellipse"> <span class="glyphicon glyphicon-option-horizontal"></span> </a>{% endif %}
+{% if forloop.counter|halfmax:count %}<span class="hideable" style="display: none" data-ajax="false">
+    &nbsp;<span class="glyphicon glyphicon-asterisk"></span><span class="glyphicon glyphicon-asterisk"></span><span class="glyphicon glyphicon-asterisk"></span>&nbsp;
+</span>{%endif%}
 {% endfor %}
 </div>
 {% endfor %}

@@ -149,6 +149,7 @@ else:
 DEFAULT_CATALOG = 'uncataloged'
 UNKNOWN_MIME_TYPE = 'application/octet-stream'
 METADATA_EXTENSIONS = ('.thn', '.xmp')
+INDEX_THUMBNAILS_MAX = 200
 
 PATH_MAX = os.pathconf('.', 'PC_PATH_MAX')  # how brain damaged is this?!
 NAME_MAX = os.pathconf('.', 'PC_NAME_MAX')

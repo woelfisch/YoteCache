@@ -36,8 +36,12 @@ def index(request):
         # filename contains a timestamp, otherwise: order_by('date', 'filename')
         media_files = MediaFile.objects.filter(catalog=catalog).exclude(rejected=True).exclude(
             mime_type__hide=True).order_by('filename')
+        count = media_files.count()
+        if count > settings.INDEX_THUMBNAILS_MAX:
+            num = settings.INDEX_THUMBNAILS_MAX/2
+            media_files=list(media_files[:num]) +list(media_files[count-num:count])
         # the template engine cannot dereference dicts based on variables
-        all_media_list.append([catalog, media_files])
+        all_media_list.append([catalog, media_files, count])
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
 
 def lighttable(request, catalog_id):
