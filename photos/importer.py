@@ -123,29 +123,24 @@ class ImportMedia(object):
         else:
             logging.error('configuration error: unknown or missing IMAGE_LIB {}'.format(settings.IMAGE_LIB))
 
-    def create_video_proxy(self, source, dest, mode):
-        logging.info('called for {}, {}, {}'.format(source, dest, mode))
-        if os.path.isfile(dest) and not self.force:
+    def create_video_proxy(self, source, thumbnail, websized):
+        logging.info('called for {}, {}, {}'.format(source, thumbnail, websized))
+        if os.path.isfile(thumbnail) and os.path.isfile(websized) and not self.force:
             return
 
-        if mode == self.PROXY_THUMBNAIL:
-            resize_to = settings.VIDEO_THUMBNAILSIZE
-        elif mode == self.PROXY_WEBSIZED:
-            resize_to = settings.VIDEO_WEBSIZE
-        else:
-            return
+        call([settings.FFMPEG_COMMAND, '-i', source,
+              '-i', settings.THUMBNAIL_VIDEO_PLAY_BUTTON,
+              '-i', settings.PREVIEW_VIDEO_PLAY_BUTTON,
+              '-filter_complex', settings.FFMPEG_FILTER,
+              '-y', '-v', 'quiet',
+              '-map', '[tn]',
+              '-frames:v', '1',
+              thumbnail,
+              '-map', '[proxy]',
+              '-frames:v', '1',
+              websized],
+             shell=False)
 
-        # ffmpeg -i ../../import/test/MVI_7541.MOV -vsync 0 \
-        #        -vf select="eq(pict_type\,PICT_TYPE_I)",scale=768:-1 -r 10 -t 30 -y /tmp/test.gif
-        #
-        # avconv -i /data/camera/import/test/MVI_7541.MOV -vsync 0 \
-        #        -vf select="eq(pict_type\,I)",scale=768:-1,format=rgb8 -r 10 -t 30 -pix_fmt rgb24 -y test.gif
-
-        call([settings.FFMPEG_COMMAND, '-i', source, '-vsync', '0',
-              '-vf', settings.FFMPEG_FILTER.format(resize_to),
-              '-r', '10', '-t', '{:d}'.format(settings.VIDEO_PREVIEWTIME),
-              '-y', '-v', 'quiet'] +
-             settings.FFMPEG_EXTRA + [dest], shell=False)
 
     def write_xmp_sidecar(self, sourcefile):
         destxmppath = os.path.splitext(sourcefile)[0] + '.xmp'
@@ -350,28 +345,27 @@ class ImportMedia(object):
 
                 break
 
-        (mediareldir, giffilename) = os.path.split(os.path.relpath(source_file, settings.SOURCE_DIR))
+        (mediareldir, jpegfilename) = os.path.split(os.path.relpath(source_file, settings.SOURCE_DIR))
         mediadir = settings.WEB_DIR + mediareldir
-        giffilename = os.path.splitext(giffilename)[0] + ".gif"
+        jpegfilename = os.path.splitext(jpegfilename)[0] + ".jpg"
 
-        self.status.update(10, 'Writing Thumbnail')
+        self.status.update(50, 'Writing Thumbnail and Proxy')
         try:
             tndir = mediadir + "/" + settings.THUMBNAIL_DIR
-            tnfullpath = tndir + '/' + giffilename
+            tnfullpath = tndir + '/' + jpegfilename
             tools.mkdir(tndir)
-            self.create_video_proxy(source_file, tnfullpath, self.PROXY_THUMBNAIL)
         except Exception as e:
             raise e
 
-        self.status.update(50, 'Writing Proxy')
         try:
             webimgdir = mediadir + "/" + settings.PREVIEW_DIR
-            webimgfullpath = webimgdir + '/' + giffilename
+            webimgfullpath = webimgdir + '/' + jpegfilename
             tools.mkdir(webimgdir)
-            self.create_video_proxy(source_file, webimgfullpath, self.PROXY_WEBSIZED)
         except Exception as e:
             os.unlink(tnfullpath)
             raise e
+
+        self.create_video_proxy(source_file, tnfullpath, webimgfullpath)
 
         self.status.update(90, 'Writing Sidecar')
         if not havesourcesidecar:

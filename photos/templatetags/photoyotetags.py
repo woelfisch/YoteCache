@@ -13,7 +13,8 @@ def proxyfile(media_file):
 
     mt = media_file.mime_type.type
     if mt.startswith('video'):
-        extension = ".gif"
+        # used to be animated gifs until I found out how crappy Safari is...
+        extension = ".jpg"
     elif mt.startswith('image'):
         extension = ".jpg"
     else:
