@@ -131,7 +131,7 @@ class ImportMedia(object):
 
         for keyframe in 10, 1:
             ffmpeg_filter="[0:v] select='eq(pict_type,I)*lte(t,30)' [iframes];" \
-              "[iframes] select='gte(n,%d)',split=2 [sel1][sel2];" \
+              "[iframes] select='gte(n,{})',split=2 [sel1][sel2];" \
               "[sel1] scale=128:-1[tns]; [tns][1:v] overlay=main_w-overlay_w-5:main_h-overlay_h-5 [tn];" \
               "[sel2] scale=768:-1[prxs]; [prxs][2:v]overlay=main_w-overlay_w-10:main_h-overlay_h-10 [proxy]".format(keyframe)
 
