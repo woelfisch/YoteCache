@@ -52,7 +52,7 @@ def lighttable(request, catalog_id):
         raise PermissionDenied
 
     catalog = get_object_or_404(Catalog, id=catalog_id)
-    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('filename')
+    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('date', 'filename')
 
     try:
         media_first = filmstrip[0]

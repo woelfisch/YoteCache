@@ -160,11 +160,6 @@ VIDEO_THUMBNAILSIZE = 128
 THUMBNAIL_VIDEO_PLAY_BUTTON = os.path.join(BASE_DIR, 'photos/static', 'photos/images/playbutton-thumbnail.png')
 PREVIEW_VIDEO_PLAY_BUTTON = os.path.join(BASE_DIR, 'photos/static', 'photos/images/playbutton-preview.png')
 
-FFMPEG_FILTER="[0:v] select='eq(pict_type,I)*lte(t,30)' [iframes];" \
-              "[iframes] select='gte(n,10)',split=2 [sel1][sel2];" \
-              "[sel1] scale=128:-1[tns]; [tns][1:v] overlay=main_w-overlay_w-5:main_h-overlay_h-5 [tn];" \
-              "[sel2] scale=768:-1[prxs]; [prxs][2:v]overlay=main_w-overlay_w-10:main_h-overlay_h-10 [proxy]"
-
 if tools.is_in_path('avconv'):
     FFMPEG_COMMAND = 'avconv'
 elif tools.is_in_path('ffmpeg'):

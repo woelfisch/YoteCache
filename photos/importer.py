@@ -128,10 +128,17 @@ class ImportMedia(object):
         if os.path.isfile(thumbnail) and os.path.isfile(websized) and not self.force:
             return
 
-        call([settings.FFMPEG_COMMAND, '-i', source,
+
+        for keyframe in 10, 1:
+            ffmpeg_filter="[0:v] select='eq(pict_type,I)*lte(t,30)' [iframes];" \
+              "[iframes] select='gte(n,%d)',split=2 [sel1][sel2];" \
+              "[sel1] scale=128:-1[tns]; [tns][1:v] overlay=main_w-overlay_w-5:main_h-overlay_h-5 [tn];" \
+              "[sel2] scale=768:-1[prxs]; [prxs][2:v]overlay=main_w-overlay_w-10:main_h-overlay_h-10 [proxy]".format(keyframe)
+
+            call([settings.FFMPEG_COMMAND, '-i', source,
               '-i', settings.THUMBNAIL_VIDEO_PLAY_BUTTON,
               '-i', settings.PREVIEW_VIDEO_PLAY_BUTTON,
-              '-filter_complex', settings.FFMPEG_FILTER,
+              '-filter_complex', ffmpeg_filter,
               '-y', '-v', 'quiet',
               '-map', '[tn]',
               '-frames:v', '1',
@@ -140,6 +147,9 @@ class ImportMedia(object):
               '-frames:v', '1',
               websized],
              shell=False)
+
+            if os.path.isfile(thumbnail) and os.path.isfile(websized):
+                return
 
 
     def write_xmp_sidecar(self, sourcefile):
