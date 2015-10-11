@@ -66,6 +66,10 @@ def fullsize(media_file):
 def basename(media_file):
     return os.path.split(media_file)[1]
 
+@register.filter(name='halfmax')
+def halfmax(counter, thumbnail_items):
+    if thumbnail_items > settings.INDEX_THUMBNAILS_MAX and counter == settings.INDEX_THUMBNAILS_MAX/2:
+        return True
 
 @register.simple_tag(name='static-image')
 def static_image(what):
