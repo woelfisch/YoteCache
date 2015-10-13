@@ -344,6 +344,20 @@
 
     /* ===== navigation ===== */
 
+    // hack to reduce memory usage and slow-down on large catalogues
+    $.fn.extend({
+        hide_sl: function() {
+            $(this).hide();
+            img = $("div.thumbnail-image", this);
+            img.removeAttr("style");
+        },
+        show_sl: function() {
+            img = $("div.thumbnail-image", this);
+            img.attr("style", img.attr("tn"));
+            $(this).show();
+        }
+    });
+
     function previous_image() {
         cur_media = verify_index(cur_media-1);
         set_preview_image();
@@ -376,11 +390,11 @@
             last=media_list.length < 6? media_list.length-1:5;
         }
         for (idx = 0; idx < first; idx++)
-            $(slide_id(idx)).hide();
+            $(slide_id(idx)).hide_sl();
         for (idx = last; idx < media_list.length; idx++)
-            $(slide_id(idx)).hide();
+            $(slide_id(idx)).hide_sl();
         for (idx = first; idx <= last; idx++)
-            $(slide_id(idx)).show();
+            $(slide_id(idx)).show_sl();
 
         $(slide_id(cur_highlight)).css('border-color', 'white');
         $(slide_id(highlight)).css('border-color', 'black');
@@ -390,16 +404,16 @@
 
     function slide_strip_left() {
         if (strip_first >= media_list.length-6) return;
-        $(slide_id(strip_first)).hide();
-        $(slide_id(strip_first+6)).show();
+        $(slide_id(strip_first)).hide_sl();
+        $(slide_id(strip_first+6)).show_sl();
         strip_first++;
     }
 
     function slide_strip_right() {
         if (strip_first == 0) return;
         strip_first--;
-        $(slide_id(strip_first+6)).hide();
-        $(slide_id(strip_first)).show();
+        $(slide_id(strip_first+6)).hide_sl();
+        $(slide_id(strip_first)).show_sl();
     }
 
     var slide_scroll_mouse_pos;
@@ -875,8 +889,8 @@
         {% for media in filmstrip %}
         <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
             <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
-                <div class="image-center-container thumbnail-image" style="background-image: url({{media|thumbnail}})">
-                    <img class="image-center-overlay" src="{% static-image 'thumbnail' %}" preload="none">
+                <div class="image-center-container thumbnail-image" tn="background-image: url({{media|thumbnail}})">
+                    <img class="image-center-overlay" src="{% static-image 'thumbnail' %}">
                 </div>
                 <div class="caption">
                     <div>{{media.media_file}}</div>
@@ -908,6 +922,12 @@
 
 <div class="page-image" style="display: none">
     <img id="image-fullsize" class="image-responsive" data-role="none">
+</div>
+
+<div class="page-video" style="display: none">
+    <video controls data-role="none">
+        <img src="{% static-image 'unavailable' %}">
+    </video>
 </div>
 
 <div class="modal" id="bulk-action-modal" tabindex="-1" role="dialog">
