@@ -1,9 +1,13 @@
 from django.conf import settings
 import os
 import logging
+import json
+import inspect
 from pwd import getpwnam
 from grp import getgrnam
-
+from datetime import datetime
+from django.db.models.fields.related import ManyToManyField
+from django.db.models import ForeignKey
 
 def process_dead(pid):
     try:
@@ -115,3 +119,97 @@ def www_user():
         except:
             pass
     return getpwnam('nobody').pw_uid
+
+
+def proxyfile(media_file):
+    if not media_file or not media_file.mime_type:
+        return None
+
+    mt = media_file.mime_type.type
+    if mt.startswith('video'):
+        # used to be animated gifs until I found out how crappy Safari is...
+        extension = ".jpg"
+    elif mt.startswith('image'):
+        extension = ".jpg"
+    else:
+        return None
+
+    return get_basename(media_file.media_dir.path + '/' + media_file.media_file) + extension
+
+
+def thumbnail(media_file):
+    proxy = proxyfile(media_file)
+    if not proxy:
+        return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
+
+    (directory, name) = os.path.split(proxy)
+    thumbnail_path = directory + '/' + settings.THUMBNAIL_DIR + name
+    if not os.path.exists(settings.WEB_DIR + thumbnail_path):
+        return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
+
+    return settings.IMAGE_URL + thumbnail_path
+
+
+def preview(media_file):
+    proxy = proxyfile(media_file)
+    if not proxy:
+        return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
+
+    (directory, name) = os.path.split(proxy)
+    preview_path = directory + '/' + settings.PREVIEW_DIR + name
+    if not os.path.exists(settings.WEB_DIR + preview_path):
+        return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
+
+    return settings.IMAGE_URL + preview_path
+
+
+def fullsize(media_file):
+    proxy = proxyfile(media_file)
+    if not proxy:
+        return settings.STATIC_URL + settings.FULLSIZE_UNAVAILABLE
+
+    if not os.path.exists(settings.WEB_DIR + proxy):
+        return settings.STATIC_URL + settings.FULLSIZE_UNAVAILABLE
+
+    return settings.IMAGE_URL + proxy
+
+
+# http://stackoverflow.com/questions/21925671/convert-django-model-object-to-dict-with-all-of-the-fields-intact
+def _to_dict(instance):
+    opts = instance._meta
+    data = {}
+    for f in opts.concrete_fields + opts.many_to_many:
+        if isinstance(f, ManyToManyField):
+            if instance.pk is None:
+                data[f.name] = []
+            else:
+                data[f.name] = list(f.value_from_object(instance).values_list('pk', flat=True))
+        elif isinstance(f, ForeignKey):
+            try:
+                # how about yet ANOTHER level of indirection?!
+                data[f.name] = f.rel.to.objects.get(pk=f.value_from_object(instance)).natural_key()
+            except:
+                data[f.name] = ''
+        else:
+            data[f.name] = f.value_from_object(instance)
+
+    if hasattr(instance, 'properties'):
+        for name, prop in inspect.getmembers(instance.properties, lambda x: inspect.isfunction(x)):
+            data[name] = prop(instance)
+
+    if instance.pk:
+        data['id'] = instance.pk
+
+    # print data
+    return data
+
+def _serialize_other(o):
+    if isinstance(o, datetime):
+        return o.isoformat()
+    raise TypeError("Cannot serialize type {}".format(type(o)))
+
+def create_json(media_objs):
+    result = []
+    for m in media_objs:
+        result.append({'pk': m.pk, 'fields': _to_dict(m)})
+    return json.dumps(result, default=_serialize_other)

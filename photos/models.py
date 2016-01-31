@@ -201,12 +201,26 @@ class MediaFile(models.Model):
             ("move_mediafile", "Can move media file")
         )
 
+    class properties:
+        @staticmethod
+        def thumbnail(media):
+            return tools.thumbnail(media)
+
+        @staticmethod
+        def preview(media):
+            return tools.preview(media)
+
+        @staticmethod
+        def fullsize(media):
+            return tools.fullsize(media)
+
     def __str__(self):
         return self.filename
 
     def __init__(self, *args, **kwargs):
         # logging.basicConfig(filename=settings.LOGFILE, level=settings.LOGLEVEL, format=settings.LOG_FORMAT)
         super(MediaFile, self).__init__(*args, **kwargs)
+        self.properties.media = self
 
     def save(self, *args, **kwargs):
         destdir = self.catalog.get_path()

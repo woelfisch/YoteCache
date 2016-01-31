@@ -5,63 +5,21 @@ from photos import tools
 
 register = template.Library()
 
-
 @register.filter(name='proxyfile')
 def proxyfile(media_file):
-    if not media_file or not media_file.mime_type:
-        return None
-
-    mt = media_file.mime_type.type
-    if mt.startswith('video'):
-        # used to be animated gifs until I found out how crappy Safari is...
-        extension = ".jpg"
-    elif mt.startswith('image'):
-        extension = ".jpg"
-    else:
-        return None
-
-    return tools.get_basename(media_file.media_dir.path + '/' + media_file.media_file) + extension
-
+    return tools.proxyfile(media_file)
 
 @register.filter(name='thumbnail')
 def thumbnail(media_file):
-    proxy = proxyfile(media_file)
-    if not proxy:
-        return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
-
-    (directory, name) = os.path.split(proxy)
-    thumbnail_path = directory + '/' + settings.THUMBNAIL_DIR + name
-    if not os.path.exists(settings.WEB_DIR + thumbnail_path):
-        return settings.STATIC_URL + settings.THUMBNAIL_UNAVAILABLE
-
-    return settings.IMAGE_URL + thumbnail_path
-
+    return tools.thumbnail(media_file)
 
 @register.filter(name='preview')
 def preview(media_file):
-    proxy = proxyfile(media_file)
-    if not proxy:
-        return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
-
-    (directory, name) = os.path.split(proxy)
-    preview_path = directory + '/' + settings.PREVIEW_DIR + name
-    if not os.path.exists(settings.WEB_DIR + preview_path):
-        return settings.STATIC_URL + settings.PREVIEW_UNAVAILABLE
-
-    return settings.IMAGE_URL + preview_path
-
+    return preview(media_file)
 
 @register.filter(name='fullsize')
 def fullsize(media_file):
-    proxy = proxyfile(media_file)
-    if not proxy:
-        return settings.STATIC_URL + settings.FULLSIZE_UNAVAILABLE
-
-    if not os.path.exists(settings.WEB_DIR + proxy):
-        return settings.STATIC_URL + settings.FULLSIZE_UNAVAILABLE
-
-    return settings.IMAGE_URL + proxy
-
+    return tools.fullsize(media_file)
 
 @register.filter(name='basename')
 def basename(media_file):

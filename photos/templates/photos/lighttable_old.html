@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+{% load photoyotetags %}
+{% load static %}
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PhotoYote</title>
+    <link href="{% static 'jquery/jquery.mobile-1.4.5.min.css' %}" rel="stylesheet">
+    <link href="{% static 'bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'bootstrap/css/bootstrap-datetimepicker.min.css' %}" rel="stylesheet">
+    <script src="{% static 'js/moment.min.js' %}"></script>
+    <script src="{% static 'jquery/jquery-2.1.3.min.js' %}"></script>
+    <script src="{% static 'jquery/jquery.mobile-1.4.5.min.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap.min.js' %}"></script>
+    <script src="{% static 'bootstrap/js/bootstrap-datetimepicker.min.js' %}"></script>
+</head>
+<body>
+<style>
+    .filmslide {
+        padding: 0;
+        margin-top: 2px;
+        border-style: solid;
+        border-width: 1px;
+        border-color: white;
+    }
+
+    .thumbnail {
+        position: relative;
+        z-index: 0;
+        margin-bottom: 0;
+    }
+
+    .image-center-container {
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: contain;
+        background-color: white;
+    }
+
+    .image-center-overlay {
+        opacity: 0;
+    }
+
+    .tn-rejected {
+        background-color: #c0c0c0;
+    }
+
+    .spacer {
+        height: 1em;
+    }
+
+    .media-catalog-title {
+        margin-left: 0.3em;
+        margin-right: 0.3em;
+    }
+</style>
+<script>
+    var media_list=[
+    {% if filmstrip %}
+    {% for media in filmstrip %}
+    { id: "{{media.id}}", preview: "{{media|preview}}", fullsize: "{{media|fullsize}}" },{% endfor %}
+    {% else %}{ id: "noimage", preview: "{{none|preview}}", fullsize: "{{none|fullsize}}" },
+    {% endif %}];
+
+    var may_edit = "{{perms.photos.change_mediafile}}" == "True";
+    var may_move = "{{perms.photos.move_mediafile}}" == "True";
+
+    function get_index_by_id(id) {
+        for (idx=0; idx < media_list.length; idx++) {
+            if (media_list[idx].id == id) return idx;
+        }
+        return 0;
+    }
+
+    function slide_id(idx) {
+        return '#slide-'+media_list[idx].id;
+    }
+
+    function verify_index(idx) {
+        if (idx < 0) return 0;
+        if (idx >=  media_list.length) return media_list.length-1;
+        return idx;
+    }
+    
+    /* ===== set preview image ===== */
+
+    function set_preview_image() {
+        $.mobile.loading("show");
+
+/*
+        var next_media=verify_index(cur_media+1);
+        $("#media-next").prop('disabled', next_media == cur_media);
+
+        var prev_media=verify_index(cur_media-1);
+        $("#media-prev").prop('disabled', prev_media == cur_media);
+*/
+
+
+        {% if not filmstrip %}
+        $("#image-preview").css("background-image", "url("+media_list[cur_media].preview+")");
+        $("#image-fullsize").attr("src", media_list[cur_media].fullsize);
+        $("#media-home").attr("href", "{% url 'index' %}");
+        update_image_metadata({
+                media_file: "No File",
+                date: "1970-01-01T00:00:00Z",
+                catalog: "{{catalog}}",
+                rating: 0,
+                rejected: true,
+                label: "None",
+                exposure_time: .008,
+                gain_value: 100,
+                f_number: 8,
+                focal_length: 50,
+            });
+        $("#media-rating").prop("disabled", true);
+        $("#media-label").prop("disabled", true);
+        $("#media-catalog").prop("disabled", true);
+        $("#media-reject").prop("disabled", true);
+        $("#media-bulk").prop("disabled", true);
+        {% else %}
+        $("#image-preview").css("background-image", "url("+media_list[cur_media].preview+")");
+        $("#image-preview-next").attr("src", media_list[next_media].preview);
+        $("#image-preview-prev").attr("src", media_list[prev_media].preview);
+        window.location.hash=media_list[cur_media].id;
+        set_image_metadata();
+        set_filmstrip_slide(cur_media);
+        $("#image-fullsize").attr("src", media_list[cur_media].fullsize);
+        $("#media-home").attr("href", "{% url 'index' %}#"+media_list[cur_media].id);
+        {% endif %}
+    }
+    
+    /* ===== helper functions for preview window ===== */
+
+    function display_timestamp(date) {
+        dt=date.split("T");
+        return dt[0]+" "+dt[1].substr(0,5);
+    }
+
+    function exposure(tval) {
+        if (tval < 1)
+            return "1/"+(1/tval).toFixed(0);
+        return tval.toFixed(0);
+    }
+
+    function rating_stars_main(element, rating) {
+        var stars=$(element+" > .glyphicon");
+        for (r=0; r < 5; r++) {
+            if (r < rating) {
+                $(stars[r]).removeClass("glyphicon-star-empty");
+                $(stars[r]).addClass("glyphicon-star");
+            } else {
+                $(stars[r]).removeClass("glyphicon-star");
+                $(stars[r]).addClass("glyphicon-star-empty");
+            }
+        }
+    }
+
+    function show_reject_main(rejected) {
+        if (rejected) {
+            $("#media-rejected-true").show();
+            $("#media-rejected-false").hide();
+        } else {
+            $("#media-rejected-false").show();
+            $("#media-rejected-true").hide();
+        }
+    }
+
+    function show_label_main(label) {
+        var color="grey"
+        if (label && label != "None")
+            color=label;
+        $("#media-label > .glyphicon").css("color", color);
+    }
+
+    function sanitize_catalog(catalog) {
+        return catalog.replace(/(^\s*)|(\s*$)|[\r\n/]/g, "");
+    }
+
+    function amend_catalog_dropdown(catalog, name, click_handler) {
+        var found=false;
+        $("."+name+"-link").each(function(idx) {
+            if (sanitize_catalog($(this).text()) ==  catalog) {
+                found=true;
+                return false;
+            }
+        });
+        if (found) return;
+
+        catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
+
+        var new_element = $(
+        '<li role="presentation" class="'+name+'-item">'+
+        '   <a role="menuitem" tabindex="-1" href="#" class="'+name+'-link">'+catalog+'</a>'+
+        '</li>');
+
+        new_element.insertBefore("."+name+" > ul > .endoflist");
+        var anchor = new_element.children("a");
+        anchor.on("click", click_handler);
+    }
+
+    function show_catalog_main(catalog) {
+        amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
+    }
+
+    function update_metadata_main(data) {
+        $("#media-file").text(data.media_file)
+        $("#media-date").text(display_timestamp(data.date));
+
+        document.title="PhotoYote | "+$("#media-file").text()+" | "+$("#media-date").text()
+        // $("#media-mime-type").text(data.mime_type);
+        show_catalog_main(data.catalog);
+        show_label_main(data.label);
+        rating_stars_main("#media-rating", data.rating);
+        show_reject_main(data.rejected);
+        $("#media-exposure").text(exposure(data.exposure_time)+" s");
+        $("#media-f-number").text(data.f_number);
+        $("#media-focal-length").text(data.focal_length+" mm");
+        $("#media-gain").text(data.gain_value);
+    }
+
+    /* ===== helper functions for filmstrip ===== */
+
+    function rating_stars_filmstrip(id, rating) {
+        var stars=$("#stars-"+id+" > .glyphicon");
+        for (r=0; r < 5; r++) {
+            // $(stars[r]).removeClass("glyphicon-star-empty");
+            if (r < rating) {
+                $(stars[r]).addClass("glyphicon-star");
+            } else {
+                $(stars[r]).removeClass("glyphicon-star");
+            }
+        }
+    }
+
+    function show_reject_filmstrip(id, rejected) {
+        if (rejected) {
+            $("#reject-flag-"+id).show();
+            $("#slide-"+id+" > .thumbnail").addClass("tn-rejected");
+        } else {
+            $("#reject-flag-"+id).hide();
+            $("#slide-"+id+" > .thumbnail").removeClass("tn-rejected");
+        }
+    }
+
+    function show_label_filmstrip(id, label) {
+        if (!label || label == "None") {
+            $("#media-label-flag-"+id).hide();
+        } else {
+            $("#media-label-flag-"+id).show();
+            $("#media-label-flag-"+id+" > .glyphicon-flag").css("color", label);
+        }
+    }
+
+    function show_catalog_filmstrip(id, catalog) {
+        $("#media-catalog > span.media-catalog-title").text(catalog);
+        if (catalog == "{{catalog}}")
+            $("#export-flag-"+id).hide();
+        else
+            $("#export-flag-"+id).show();
+    }
+
+    function update_metadata_filmstrip(data) {
+        var id=data.id;
+        rating_stars_filmstrip(id, data.rating);
+        show_reject_filmstrip(id, data.rejected);
+        show_label_filmstrip(id, data.label);
+        show_catalog_filmstrip(id, data.catalog);
+    }
+
+    /* ===== update preview and filmstrip ===== */
+
+    function set_rating() {
+        var rating=$(this).data("rating");
+        if (cur_media_meta_data.rating == rating)
+            rating--;
+        if (rating < 0)
+            rating=1;
+        rating_stars_main("#"+$(this).parent().attr("id"), rating);
+        cur_media_meta_data.rating = rating;
+        set_image_metadata({rating: rating});
+    }
+
+    function toggle_reject() {
+        var new_state=!cur_media_meta_data.rejected
+        cur_media_meta_data.rejected = new_state;
+        show_reject_main(new_state);
+        set_image_metadata({rejected: new_state});
+    }
+
+    function set_label() {
+        var label=$(this).data("label");
+        show_label_main(label);
+        set_image_metadata({label: label});
+    }
+
+    function set_catalog() {
+        var catalog = sanitize_catalog($(this).text());
+        set_image_metadata({catalog: catalog});
+    }
+
+    function add_catalog(ev) {
+        var catalog = sanitize_catalog($(this).val());
+        $(this).val("");
+        $("#media-catalog").click();
+        set_image_metadata({catalog: catalog});
+    }
+
+    function update_image_metadata(data) {
+        update_metadata_main(data);
+        update_metadata_filmstrip(data);
+        $.mobile.loading("hide");
+    }
+
+    /* ===== get or set image data ===== */
+
+    var cur_media_meta_data;
+    function set_image_metadata(values) {
+        var data;
+        if (values == undefined) {
+            type = "GET";
+        } else {
+            var type = "POST";
+            values["csrfmiddlewaretoken"] = csrftoken;
+            data = $.param(values);
+        }
+
+        $.ajax({
+            url: "{% url 'metadata' %}"+media_list[cur_media].id,
+            type: type,
+            data: values,
+            dataType: "json",
+            success: function(json) {
+                cur_media_meta_data=json[0].fields;
+                cur_media_meta_data['id']=json[0].pk;
+                update_image_metadata(cur_media_meta_data);
+            },
+            error: function(xhr, status, errorThrown) {
+                console.log("Error: "+errorThrown);
+                console.log("Status: "+status);
+                console.dir( xhr);
+            }
+        });
+    }
+
+    /* ===== navigation ===== */
+
+    // hack to reduce memory usage and slow-down on large catalogues
+    $.fn.extend({
+        hide_sl: function() {
+            $(this).hide();
+            img = $("div.thumbnail-image", this);
+            img.removeAttr("style");
+        },
+        show_sl: function() {
+            img = $("div.thumbnail-image", this);
+            img.attr("style", img.attr("tn"));
+            $(this).show();
+        }
+    });
+
+    function previous_image() {
+        cur_media = verify_index(cur_media-1);
+        set_preview_image();
+    }
+
+    function next_image() {
+        cur_media = verify_index(cur_media+1);
+        set_preview_image();
+    }
+
+    function first_image() {
+        cur_media = verify_index(0);
+        set_preview_image();
+    }
+
+    function last_image() {
+        cur_media = verify_index(media_list.length-1);
+        set_preview_image();
+    }
+
+    var cur_highlight=0;
+    var strip_first=0;
+
+    function set_filmstrip_slide(highlight) {
+        var last=highlight+3;
+        if (last >= media_list.length) last=media_list.length-1;
+        var first=last-5;
+        if (first < 0) {
+            first=0;
+            last=media_list.length < 6? media_list.length-1:5;
+        }
+        for (idx = 0; idx < first; idx++)
+            $(slide_id(idx)).hide_sl();
+        for (idx = last; idx < media_list.length; idx++)
+            $(slide_id(idx)).hide_sl();
+        for (idx = first; idx <= last; idx++)
+            $(slide_id(idx)).show_sl();
+
+        $(slide_id(cur_highlight)).css('border-color', 'white');
+        $(slide_id(highlight)).css('border-color', 'black');
+        cur_highlight=highlight;
+        strip_first=first;
+    }
+
+    function slide_strip_left() {
+        if (strip_first >= media_list.length-6) return;
+        $(slide_id(strip_first)).hide_sl();
+        $(slide_id(strip_first+6)).show_sl();
+        strip_first++;
+    }
+
+    function slide_strip_right() {
+        if (strip_first == 0) return;
+        strip_first--;
+        $(slide_id(strip_first+6)).hide_sl();
+        $(slide_id(strip_first)).show_sl();
+    }
+
+    var slide_scroll_mouse_pos;
+    function slide_scroll(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        var delta = ev.pageX - slide_scroll_mouse_pos;
+        if (Math.abs(delta) < 40) return;
+
+        if (delta > 0)
+            slide_strip_right();
+        else
+            slide_strip_left();
+
+        slide_scroll_mouse_pos = ev.pageX;
+    }
+
+    function slide_start_scroll(ev) {
+        slide_scroll_mouse_pos = ev.pageX;
+        $(this).on("mousemove vmousemove", slide_scroll);
+        ev.preventDefault();
+        ev.stopPropagation();
+    }
+
+    function slide_stop_scroll(ev) {
+        $(this).off("mousemove");
+        $(this).off("vmousemove");
+    }
+
+    function setup_filmstrip() {
+        for (idx=0; idx < media_list.length; idx++) {
+            media=media_list[idx];
+            $('#slide-'+media.id+' > div > div').on("click vclick", {idx: idx}, function(ev) {
+                cur_media = ev.data.idx;
+                set_preview_image();
+            });
+        }
+    }
+
+    /* ===== bulk operations ===== */
+
+    var bulk_operation_data = { };
+
+    function bulk_get_dropdown_value(node, selector) {
+        var this_class=$("span", node).attr("class");
+        var this_style=$("span", node).attr("style");
+        var this_text=$(node).text();
+
+        $(selector+"-selected-icon").attr("class", this_class).removeAttr("style").attr("style", this_style).show();
+        $(selector+"-selected").text(this_text);
+        return this_text.replace(/(^\s*)|(\s*$)|[\r\n]/g, "");
+    }
+
+    function bulk_action_value_hide() {
+        $(".bulk-action-rating").hide();
+        $(".bulk-action-label").hide();
+        $(".bulk-action-catalog").hide();
+        $("#bulk-submit").prop("disabled", true);
+        $("#bulk-cancel").prop("disabled", false);
+    }
+
+    function bulk_action_attribute_hide() {
+        $("#bulk-action-attribute").prop("disabled", true);
+        $("#bulk-action-attribute-selected-icon").hide();
+        $("#bulk-action-attribute-selected").text("Action");
+        bulk_action_value_hide();
+    }
+
+    function bulk_condition_value_hide() {
+        $(".bulk-condition-rating").hide();
+        $(".bulk-condition-label").hide();
+        $(".bulk-condition-catalog").hide();
+        bulk_action_attribute_hide();
+    }
+
+    function bulk_condition_operator_hide() {
+        $(".bulk-condition-operator-rating").hide();
+        $(".bulk-condition-operator-equal").hide();
+        $(".bulk-condition-operator-range").hide();
+        $(".bulk-condition-date").hide();
+        bulk_condition_value_hide();
+    }
+
+    function bulk_modal_open() {
+        bulk_condition_operator_hide();
+        $("#bulk-condition-attribute-selected-icon").hide();
+        $("#bulk-condition-attribute-selected").text("Select");
+        $("#bulk-action-modal").modal('show');
+    }
+
+    function bulk_condition_set_attribute() {
+        bulk_condition_operator_hide();
+
+        var flags = {"All": "all", "Rejected": "reject", "Published": "publish"};
+        bulk_operation_data.select = {};
+        bulk_operation_data.set = {};
+
+        var attribute = bulk_get_dropdown_value(this, "#bulk-condition-attribute");
+
+        if (attribute in flags) {
+            bulk_operation_data.select.item = flags[attribute];
+            $("#bulk-action-attribute").prop("disabled", false);
+        } else
+        if (attribute == "Rating") {
+            bulk_operation_data.select.item = "rating";
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-rating-selected").text(" = ");
+            $("#bulk-condition-operator-rating-selected").data("operator", bulk_operation_data.select.operator);
+            $(".bulk-condition-operator-rating").show();
+            $("#bulk-condition-rating-selected").html("Rating");
+            $("#bulk-condition-rating").prop("disabled", false);
+            $(".bulk-condition-rating").show();
+        } else
+        if (attribute == "Label") {
+            bulk_operation_data.select.item = "label";
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-equal-selected").text(" is ");
+            $("#bulk-condition-operator-equal-selected").data("operator", bulk_operation_data.select.operator);
+            $(".bulk-condition-operator-equal").show();
+            $("#bulk-condition-label-selected-icon").hide();
+            $("#bulk-condition-label-selected").text("Label");
+            $("#bulk-condition-label").prop("disabled", false);
+            $(".bulk-condition-label").show();
+        } else
+        if (attribute == "Catalog") {
+            bulk_operation_data.select.item = "catalog";
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-equal-selected").text(" is ");
+            $("#bulk-condition-operator-equal-selected").data("operator", bulk_operation_data.select.operator);
+            $(".bulk-condition-operator-equal").show();
+            $("#bulk-condition-catalog-selected").text("{{catalog}}");
+            $("#bulk-condition-catalog").prop("disabled", false);
+            $("#bulk-action-attribute").prop("disabled", false);
+            $(".bulk-condition-catalog").show();
+        } else
+        if (attribute == "Timestamp") {
+            bulk_operation_data.select.item = "date";
+            bulk_operation_data.select.operator="eq";
+            $("#bulk-condition-operator-range-selected").text(" between ");
+            $("#bulk-condition-operator-range-selected").data("operator", bulk_operation_data.select.operator);
+            $(".bulk-condition-operator-range").show();
+            $(".bulk-condition-date").show();
+            bulk_operation_data.select.value = {};
+            bulk_condition_set_start_date();
+            bulk_condition_set_end_date();
+            $("#bulk-action-attribute").prop("disabled", false);
+        }
+    }
+
+    function bulk_condition_set_operator_rating() {
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-rating");
+        $("#bulk-condition-rating").prop("disabled", false);
+        bulk_operation_data.select.operator=$(this).data("operator");
+    }
+
+    function bulk_condition_set_operator_equal() {
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-equal");
+        $(".bulk-condition-equal").show();
+        if (bulk_operation_data.select.item == "label") {
+            $("#bulk-condition-label").prop("disabled", false);
+        } else {
+            bulk_operation_data.select.value=$("#bulk-condition-catalog-selected").text();
+            $("#bulk-condition-catalog").prop("disabled", false);
+            $("#bulk-action-attribute").prop("disabled", false);
+        }
+
+        bulk_operation_data.select.operator=$(this).data("operator");
+    }
+
+    function bulk_condition_set_operator_range() {
+        bulk_get_dropdown_value(this, "#bulk-condition-operator-range");
+        $("#bulk-condition-range").prop("disabled", false);
+        bulk_operation_data.select.operator=$(this).data("operator");
+    }
+
+    function bulk_condition_set_rating() {
+        var rating=$(this).data("rating");
+        $("#bulk-condition-rating-selected").html($(this).html());
+        bulk_operation_data.select.value = rating;
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
+    function bulk_condition_set_label() {
+        bulk_get_dropdown_value(this, "#bulk-condition-label");
+        bulk_operation_data.select.value = $(this).data("label");
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
+    function bulk_condition_set_catalog() {
+        var catalog=$(this).text()
+        $(".bulk-condition-catalog-title").text(catalog);
+        bulk_operation_data.select.value = catalog;
+        $("#bulk-action-attribute").prop("disabled", false);
+    }
+
+    function bulk_condition_set_start_date() {
+        bulk_operation_data.select.value.start=$("#bulk-condition-date-start").data("DateTimePicker").date().format("YYYY-MM-DD HH:mm");
+    }
+
+    function bulk_condition_set_end_date() {
+        bulk_operation_data.select.value.end=$("#bulk-condition-date-end").data("DateTimePicker").date().format("YYYY-MM-DD HH:mm");
+    }
+
+    function bulk_action_set_attribute() {
+        bulk_action_value_hide();
+        bulk_operation_data.set = {}
+        var attribute = bulk_get_dropdown_value(this, "#bulk-action-attribute");
+
+        var flags = {"Reject": "reject", "Publish": "publish"};
+        if (attribute in flags) {
+            $("#bulk-submit").prop("disabled", false);
+            bulk_operation_data.set.item = flags[attribute];
+        } else
+        if (attribute == "Set rating") {
+            bulk_operation_data.set.item = "rating";
+            $("#bulk-action-rating-selected").html("Rating");
+            $(".bulk-action-rating").show();
+        } else
+        if (attribute == "Set label") {
+            bulk_operation_data.set.item = "label";
+            $("#bulk-action-label-selected-icon").hide();
+            $("#bulk-action-label-selected").text("Label");
+            $(".bulk-action-label").show();
+        } else
+        if (attribute == "Move to catalog") {
+            $("#bulk-submit").prop("disabled", false);
+            bulk_operation_data.set.item = "catalog";
+            bulk_operation_data.set.value = "{{catalog}}";
+            $("#bulk-action-catalog-selected").text(bulk_operation_data.set.value);
+            $(".bulk-action-catalog").show();
+        }
+    }
+
+    function bulk_action_set_rating() {
+        var rating=$(this).data("rating");
+        $("#bulk-action-rating-selected").html($(this).html());
+        bulk_operation_data.set.value = rating;
+        $("#bulk-submit").prop("disabled", false);
+    }
+
+    function bulk_action_set_label() {
+        var label = bulk_get_dropdown_value(this, "#bulk-action-label");
+        bulk_operation_data.set.value = label;
+        $("#bulk-submit").prop("disabled", false);
+    }
+    
+    function bulk_action_set_catalog() {
+        var catalog=$(this).text();
+        bulk_operation_data.set.value = catalog;
+        $(".bulk-action-catalog-title").text(catalog);
+        $("#bulk-submit").prop("disabled", false);
+    }
+    
+    function bulk_action_add_catalog() {
+        var catalog = sanitize_catalog($(this).val());
+        $(this).val("");        
+        amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
+        amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
+        amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
+        $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").click();
+    }
+
+    function bulk_submit() {
+        $.mobile.loading("show");
+        bulk_operation_data.ids = [];
+        for (idx=0; idx < media_list.length; idx++)
+            bulk_operation_data.ids.push(media_list[idx].id);
+
+        // console.log(JSON.stringify(bulk_operation_data));
+
+        $.ajax({
+            url: "{% url 'bulk' %}",
+            type: "POST",
+            data: $.param({"csrfmiddlewaretoken":  csrftoken,  "json": JSON.stringify(bulk_operation_data)}),
+            dataType: "json",
+            success: function(json) {
+                if (json.length < 1) {
+                    $.mobile.loading("hide");
+                    return;
+                }
+
+                for (idx=0; idx < json.length; idx++) {
+                    var data=json[idx].fields;
+                    data["id"]=json[idx].pk;
+                    update_metadata_filmstrip(data);
+                    if (data["id"] == cur_media_meta_data["id"]) {
+                        cur_media_meta_data = data;
+                        update_metadata_main(data);
+                    }
+                }
+                $.mobile.loading("hide");
+            },
+            error: function(xhr, status, errorThrown) {
+                console.log("Error: "+errorThrown);
+                console.log("Status: "+status);
+                console.dir( xhr);
+                $.mobile.loading("hide");
+            }
+        });
+        $("#bulk-action-modal").modal('hide');
+    }
+
+    /* ===== initializing ==== */
+
+    var media_id=window.location.hash.substring(1);
+    var cur_media = get_index_by_id(media_id);
+    var csrftoken;
+
+    $(document).ready(function(){
+        csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
+
+        $.mobile.loading("show");
+
+        set_preview_image();
+        setup_filmstrip();
+        $(".image-center-overlay").on("dragstart", function() { return false; });
+
+        $("#media-prev").on("taphold", first_image);
+        $("#media-next").on("taphold", last_image);
+
+        $("#media-prev").on("click", previous_image);
+        $("div.preview").on("swiperight", previous_image);
+        $("#media-next").on("click", next_image);
+        $("div.preview").on("swipeleft", next_image);
+
+        $("div.image-preview-container").on("click", function() {
+            $(".page-lighttable").hide();
+            $(".page-image").show();
+        });
+        $("div.page-image").on("click", function() {
+            $(".page-image").hide();
+            $(".page-lighttable").show();
+        });
+
+        $("div.filmstrip").on("mousedown vmousedown", slide_start_scroll);
+        $("div.filmstrip").on("mouseup mouseleave vmouseup", slide_stop_scroll);
+
+        if (may_edit) {
+            $("#media-reject").prop("disabled", false);
+            $("#media-label").prop("disabled", false);
+
+            $("#media-rating > span").on("click", set_rating);
+            $("#media-reject").on("click", toggle_reject);
+            $(".media-label-link").on("click", set_label);
+        } else {
+            $("#media-reject").prop("disabled", true);
+            $("#media-label").prop("disabled", true);
+            $(".bulk-action-edit").addClass("disabled", true);
+        }
+
+        if (may_move) {
+            $("#media-bulk").prop("disabled", false);
+            $("#media-catalog").prop("disabled", false);
+            $(".media-catalog-input,.bulk-action-catalog-input").on("click", function(ev) {
+                ev.stopPropagation();
+            });
+    
+            $(".media-catalog-link").on("click", set_catalog);
+            $(".media-catalog-input").on("change", add_catalog);
+        } else {
+            $("#media-catalog").prop("disabled", true);
+            $(".bulk-action-move").addClass("disabled");
+        }
+
+        $("#media-bulk").prop("disabled", !(may_edit || may_move));
+
+        $.fn.modal.Constructor.prototype.enforceFocus = function() {};
+        $("#media-bulk").on("click", bulk_modal_open);
+        $(".bulk-condition-attribute-link").on("click", bulk_condition_set_attribute);
+        $(".bulk-condition-operator-rating-link").on("click", bulk_condition_set_operator_rating);
+        $(".bulk-condition-operator-equal-link").on("click", bulk_condition_set_operator_equal);
+        $(".bulk-condition-operator-range-link").on("click", bulk_condition_set_operator_range);
+        $(".bulk-condition-rating-link").on("click", bulk_condition_set_rating);
+        $(".bulk-condition-label-link").on("click", bulk_condition_set_label);
+        $(".bulk-condition-catalog-link").on("click", bulk_condition_set_catalog);
+
+        $(".bulk-action-attribute-link").on("click", bulk_action_set_attribute);
+        $(".bulk-action-rating-link").on("click", bulk_action_set_rating);
+        $(".bulk-action-label-link").on("click", bulk_action_set_label);
+        $(".bulk-action-catalog-link").on("click", bulk_action_set_catalog);
+        $(".bulk-action-catalog-input").on("change", bulk_action_add_catalog);
+
+        $("#bulk-submit").on("click", bulk_submit);
+
+        $("#bulk-condition-date-start").datetimepicker({
+            format: "YYYY-MM-DD HH:mm",
+            minDate: "{{first.date|date:'Y-m-d H:i'}}",
+            maxDate: "{{last.date|date:'Y-m-d H:i'}}",
+            defaultDate: "{{first.date|date:'Y-m-d H:i'}}"
+        });
+        $("#bulk-condition-date-start").on("dp.change", bulk_condition_set_start_date);
+
+        $("#bulk-condition-date-end").datetimepicker({
+            format: "YYYY-MM-DD HH:mm",
+            minDate: "{{first.date|date:'Y-m-d H:i'}}",
+            maxDate: "{{last.date|date:'Y-m-d H:i'}}",
+            defaultDate: "{{last.date|date:'Y-m-d H:i'}}"
+        });
+        $("#bulk-condition-date-end").on("dp.change", bulk_condition_set_end_date);
+    });
+
+</script>
+<div class="page-lighttable">
+<div class="preview row">
+    <div class="preview-container col-xs-9">
+        <div class="preview-with-nav">
+            <div class="image-preview-container ">
+                <div id="image-preview"  class="image-center-container" style="background-image: url({% static-image 'unavailable' %})">
+                    <img class="image-center-overlay image-responsive" src="{% static-image 'preview' %}">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="media-meta-data col-xs-3">
+        <div class="row">
+            <button id="media-prev" type="button" class="btn btn-default btn-xs col-xs-4" data-role="none">
+                <span class="glyphicon glyphicon-menu-left"></span>
+            </button>
+            <a id="media-home" type="button" class="btn btn-default btn-xs col-xs-4" href="#"  data-role="none" data-ajax="false">
+                <span class="glyphicon glyphicon-home"></span>
+            </a>
+            <button id="media-next" type="button" class="btn btn-default btn-xs col-xs-4" data-role="none">
+                <span class="glyphicon glyphicon-menu-right"></span>
+            </button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <div>File: <span id="media-file"></span></div>
+        <div>Date: <span id="media-date"></span></div>
+        <!-- div>Type: <span id="media-mime-type"></span></div -->
+        <div class="spacer"></div>
+
+        <div>Exposure: <span id="media-exposure"></span></div>
+        <div>F Number: <span id="media-f-number"></span></div>
+        <div>Focal Length: <span id="media-focal-length"></span></div>
+        <div>ISO/Gain: <span id="media-gain"></span></div>
+        <div class="spacer"></div>
+
+        <div><span id="media-rating">
+            <span class="glyphicon glyphicon-star-empty" data-rating="1"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="2"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="3"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="4"></span>
+            <span class="glyphicon glyphicon-star-empty" data-rating="5"></span>
+        </span></div>
+        <div class="spacer"></div>
+
+        {% dropdown_label name="media-label" has_icon=True %}
+
+        <div class="spacer"></div>
+
+        {% dropdown_catalog name="media-catalog" has_input_field=1 has_icon=True %}
+
+        <div><button id="media-reject" type="button" class="btn btn-default" data-toggle="button" data-role="none">
+            <div id="media-rejected-false"><span class="glyphicon glyphicon-ok" style="color: green"></span> Published</div>
+            <div id="media-rejected-true" style="display: none"><span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected</div>
+        </button></div>
+
+        <div class="spacer"></div>
+
+        <div>
+            <button id="media-bulk" type="button" class="btn btn-default" data-toggle="modal" data-role="none">
+                <span class="glyphicon glyphicon-tasks"></span> Bulk Changes
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="filmstrip">
+    <div class="row">
+        {% for media in filmstrip %}
+        <div class="col-xs-2 filmslide" id="slide-{{media.id}}" style="display: none">
+            <div class="thumbnail {% if media.rejected %}tn-rejected{% endif %}">
+                <div class="image-center-container thumbnail-image" tn="background-image: url({{media|thumbnail}})">
+                    <img class="image-center-overlay" src="{% static-image 'thumbnail' %}">
+                </div>
+                <div class="caption">
+                    <div>{{media.media_file}}</div>
+                    <div>{{media.date|date:'Y-m-d H:i'}}</div>
+
+                    <div><span id="stars-{{media.id}}">
+                        {% star-rating media.rating spacing=True fillup=3 %}
+                    </span></div>
+
+                    <div><span id="reject-flag-{{media.id}}" {% if not media.rejected %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-trash"></span>
+                    </span>
+                    <span id="media-label-flag-{{media.id}}" {% if not media.label or media.label == 'None' %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-flag" style="color: {{media.label}}"></span>
+                    </span>
+                    <span id="export-flag-{{media.id}}" {% if media.catalog == catalog %}style="display: none"{%endif%}>
+                        <span class="glyphicon glyphicon-export"></span>
+                    </span>
+                    <span class="glyphicon"></span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+</div>
+
+<div class="page-image" style="display: none">
+    <img id="image-fullsize" class="image-responsive" data-role="none">
+</div>
+
+<div class="page-video" style="display: none">
+    <video controls data-role="none">
+        <img src="{% static-image 'unavailable' %}">
+    </video>
+</div>
+
+<div class="modal" id="bulk-action-modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" data-role="none">
+                    &times;
+                </button>
+                <h4 class="modal-title">Bulk Action</h4>
+            </div>
+            <div class="modal-body">
+                <div class="row"><div class="col-xs-3">
+                <div class="dropdown bulk-condition-attribute-dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-attribute" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-condition-attribute-selected-icon"></span>
+                        <span id="bulk-condition-attribute-selected">Select</span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-asterisk"></span> All
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-star"></span> Rating
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-flag"></span> Label
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-folder-open"></span> Catalog
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-trash" style="color: red"></span> Rejected
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-ok" style="color: green"></span> Published
+                        </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-attribute-link">
+                            <span class="glyphicon glyphicon-calendar"></span> Timestamp
+                        </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-2">
+                <div class="dropdown bulk-condition-operator-rating">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-condition-operator-rating" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-condition-operator-rating-selected" data-operator="eq"> = </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="eq"> = </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="ne"> &ne; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="ge"> &ge; </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-rating-link" data-operator="le"> &le; </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown bulk-condition-operator-equal">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-equal-operator" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-condition-operator-equal-selected" data-operator="eq"> is </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link" data-operator="eq"> is </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-equal-link" data-operator="ne"> is not </a></li>
+                    </ul>
+                </div>
+                    
+                <div class="dropdown bulk-condition-operator-range">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-range-operator" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-condition-operator-range-selected" data-operator="eq"> between </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-range-link" data-operator="eq"> between </a></li>
+                        <li role="presentation"><a role="menuitem" tabindex="-1" href="#" class="bulk-condition-operator-range-link" data-operator="ne"> outside </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-5">
+                {% dropdown_rating name="bulk-condition-rating" %}
+                {% dropdown_label name="bulk-condition-label" %}
+                {% dropdown_catalog name="bulk-condition-catalog" %}
+                <div class="form-group bulk-condition-date">
+                    <div class="input-group date" id="bulk-condition-date-start">
+                        <span class="input-group-addon"><span class="glyphicon glyphicon-chevron-right"></span></span>
+                        <input type="text" class="form-control" data-role="none">
+                    </div>
+                    <div class="input-group date" id="bulk-condition-date-end">
+                        <span class="input-group-addon"><span class="glyphicon glyphicon-chevron-left"></span></span>
+                        <input type="text" class="form-control" data-role="none">
+                    </div>
+                </div>
+                </div><div class="col-xs-2"></div>
+                </div>
+                <hr>
+                <div class="row"><div class="col-xs-4">
+                <div class="dropdown bulk-action-attribute">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="bulk-action-attribute" data-toggle="dropdown"  data-role="none">
+                        <span id="bulk-action-attribute-selected-icon"></span>
+                        <span id="bulk-action-attribute-selected">Action </span>
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu" role="menu">
+                        <li role="presentation" class=" bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                            <span class="glyphicon glyphicon-star"></span> Set rating
+                        </a></li>
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                            <span class="glyphicon glyphicon-flag"></span> Set label
+                        </a></li>
+                        <li role="presentation" class="bulk-action-move"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                            <span class="glyphicon glyphicon-folder-open"></span> Move to catalog
+                        </a></li>
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                            <span class="glyphicon glyphicon-trash" style="color: red"></span> Reject
+                        </a></li>
+                        <li role="presentation" class="bulk-action-edit"><a role="menuitem" tabindex="-1" href="#" class="bulk-action-attribute-link">
+                            <span class="glyphicon glyphicon-ok" style="color: green"></span> Publish
+                        </a></li>
+                    </ul>
+                </div>
+                </div><div class="col-xs-4">
+                {% dropdown_rating name="bulk-action-rating" %}
+                {% dropdown_label name="bulk-action-label" %}
+                {% dropdown_catalog name="bulk-action-catalog" has_input_field=True %}
+                <div class="col-xs-4"></div>
+                </div>    
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal" id="bulk-cancel" data-role="none">
+                    <span class="glyphicon glyphicon-remove"> Cancel</span>
+                </button>
+                <button type="button" id="bulk-submit" class="btn btn-primary" data-role="none">
+                    <span class="glyphicon glyphicon-ok"> Commit</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="display: none">
+    <img id="image-preview-prev">
+    <img id="image-preview-next">
+    {% csrf_token %}
+</div>
+</body>
+</html>

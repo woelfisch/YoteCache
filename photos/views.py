@@ -10,6 +10,7 @@ from photos.models import Catalog, MediaFile, ProgressStatus
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
 from django.conf import settings
+import tools
 
 _PERM_VIEW='photos.view_mediafile'
 _PERM_CHANGE='photos.change_mediafile'
@@ -52,12 +53,12 @@ def lighttable(request, catalog_id):
         raise PermissionDenied
 
     catalog = get_object_or_404(Catalog, id=catalog_id)
-    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('date', 'filename')
+    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('date', 'filename').values('id')
 
     try:
-        media_first = filmstrip[0]
-        media_last = filmstrip[len(filmstrip) - 1]
-    except:
+        media_first = MediaFile.objects.get(id=filmstrip[0]['id'])
+        media_last = MediaFile.objects.get(id=filmstrip[len(filmstrip) - 1]['id'])
+    except Exception as e:
         media_first = None
         media_last = None
 
@@ -66,46 +67,60 @@ def lighttable(request, catalog_id):
         'catalog_list': Catalog.objects.order_by('id'),
         'filmstrip': filmstrip,
         'first': media_first,
-        'last': media_last})
-
+        'last': media_last,
+        'strip_ids': range(1, 7),
+    })
 
 @requires_csrf_token
-def metadata(request, media_id=None):
+def filmstrip(request):
     if not request.user.has_perm(_PERM_VIEW):
         return HttpResponseForbidden()
 
-    media = get_object_or_404(MediaFile, id=media_id)
+    if 'json' not in request.POST:
+        return HttpResponseBadRequest('<p>Missing parameter in POST</p>')
 
-    may_modify = request.user.has_perm(_PERM_CHANGE)
-    may_move = request.user.has_perm(_PERM_MOVE)
+    try:
+        action = json.loads(request.POST['json'])
+    except:
+        return HttpResponseBadRequest('<p>Broken JSON</p>')
+    if not ('ids' in action):
+        return HttpResponseBadRequest('<p>Incomplete JSON</p>')
 
-    for item in request.POST:
-        if item == 'rating' and may_modify:
-            try:
-                rating = int(request.POST[item])
-                if (rating < 0) or (rating > 5):
-                    continue
-                media.rating = rating
-            except:
-                pass
-        elif item == 'label' and may_modify:
-            try:
-                media.label = request.POST[item]
-            except:
-                pass
-        elif item == 'rejected' and may_modify:
-            rejected = request.POST[item]
-            media.rejected = rejected.lower() == 'true'
-        elif item == 'catalog' and may_move:
-            catalog_name = re.sub('[\\\\/]\s?', '', request.POST[item])
-            (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
-            media.catalog = catalog
+    media = MediaFile.objects.filter(id__in=action['ids']).order_by('date', 'filename')
 
-    media.save()
+    if 'set' in action:
+        may_modify = request.user.has_perm(_PERM_CHANGE)
+        may_move = request.user.has_perm(_PERM_MOVE)
 
-    meta_json = serializers.serialize('json', [media], use_natural_foreign_keys=True)
+        values = action['set']
+
+        for m in media:
+            for item in values:
+                value = values[item]
+                if item == 'rating' and may_modify:
+                    try:
+                        rating = int(value)
+                        if (rating < 0) or (rating > 5):
+                            continue
+                        m.rating = rating
+                    except:
+                        pass
+                elif item == 'label' and may_modify:
+                    try:
+                        m.label = value
+                    except:
+                        pass
+                elif item == 'rejected' and may_modify:
+                    m.rejected = value
+                elif item == 'catalog' and may_move:
+                    catalog_name = re.sub('[\\\\/]\s?', '', value)
+                    (catalog, created) = Catalog.objects.get_or_create(name=catalog_name)
+                    m.catalog = catalog
+            m.save()
+
+    meta_json=tools.create_json(media)
+    # meta_json = serializers.serialize('json', media, use_natural_foreign_keys=True)
     return HttpResponse(content=meta_json, content_type='application/json')
-
 
 @requires_csrf_token
 def bulk(request):
@@ -220,28 +235,39 @@ def bulk(request):
     if item == 'catalog' and not may_move:
         raise PermissionDenied
 
+    changed_ids = []
     # media_list.update() won't call the model save functions, hence iterate over the list
     for media in media_list:
+        changed = False
         if item == 'reject':
+            changed |= not media.rejected
             media.rejected = True
         elif item == 'publish':
+            changed |= media.rejected
             media.rejected = False
         elif item == 'rating':
             try:
                 rating = int(value)
+                changed |= (media.rating != rating)
                 media.rating = rating
             except:
                 return HttpResponseBadRequest('<p>Rating value to set is not a number</p>')
         elif item == 'label':
+            changed |= (media.label != value)
             media.label = value
         elif item == 'catalog':
+            changed |= (media.catalog != value)
             media.catalog = value
         else:
             return HttpResponseBadRequest('<p>Set action unsupported</p>')
 
-        media.save()
+        # Model.save() keeps track of changes by itself but won't tell us about it
+        if changed:
+            media.save()
+            changed_ids.append(media.id)
 
-    response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
+    # response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
+    response = json.dumps(changed_ids)
     return HttpResponse(content=response, content_type='application/json')
 
 
