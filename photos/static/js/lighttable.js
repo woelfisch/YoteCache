@@ -926,10 +926,13 @@ function lighttable_setup(args) {
     if (args.prefetch != undefined)
         filmstrip_prefetch = args.prefetch;
 
-    console.log(first_date, last_date);
-
     csrftoken= $("input[name='csrfmiddlewaretoken']").attr("value");
-    cur_catalog_idx = media_list.indexOf(window.location.hash.substring(1)*1);
+
+    var media_id = window.location.hash.substring(1);
+    if (media_id == undefined || media_id == "")
+        cur_catalog_idx = 0;
+    else
+        cur_catalog_idx = media_list.indexOf(media_id*1);
 
     $.mobile.loading("show");
 
