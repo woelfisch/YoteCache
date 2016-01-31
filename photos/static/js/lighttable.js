@@ -832,11 +832,25 @@ function bulk_submit() {
 function view_fullsize() {
         var page_width = $(".page-lighttable").get(0).clientWidth;
         var page_height = $(".page-lighttable").get(0).clientHeight;
-        var dims = {width: page_width, height: page_height};
+        var window_width = $(window).width();
+        var window_height = $(window).height();
+        var img = $(".image-fullsize");
+
+        if (page_width > window_width)
+            page_width = window_width;
+        if (page_height > window_height)
+            page_height = window_height;
+
+        var dims = {
+            width: page_width,
+            height: page_height,
+            transform: "",
+            "transform-origin": "",
+        };
 
         $(".page-lighttable").hide();
         $(".page-image").css(dims);
-        $(".image-fullsize").css(dims);
+        $(img).css(dims);
 
         $(".page-image").show();
 
@@ -852,14 +866,30 @@ function view_fullsize() {
         else
             scale_factor = scale_factor_w;
 
-        $(".image-fullsize").panzoom("destroy");
-        $(".image-fullsize").panzoom({
-            minScale: 0.1,
+        $(img).panzoom("destroy");
+
+        $(img).panzoom({
+            minScale: 0.05,
             maxScale: 1,
             disableZoom: false, // ARGLBARGLGNAH
+            disablePan: false,
+            focal: {clientX: 0, clientY: 0},
         });
 
-        $(".image-fullsize").panzoom('zoom', scale_factor, {focal: {clientX: 0, clientY: 0}});
+        $(img).panzoom("zoom", scale_factor, {focal: {clientX: 0, clientY: 0}});
+
+        $("#image-fullsize").on("mousewheel", function(ev) {
+            console.log("wheel");
+            ev.preventDefault();
+            var delta = ev.delta || ev.originalEvent.wheelDelta;
+            var zoom_out = delta? delta < 0: ev.originalEvent.deltaY > 0;
+            $(img).panzoom("zoom", zoom_out, {
+                increment: 0.05,
+                animate: false,
+                focal: ev,
+            });
+        });
+
 }
 
 /* ===== initializing ==== */
