@@ -20,7 +20,6 @@ var cur_catalog_idx;
 var cur_filmstrip_first = 0;
 var cur_filmstrip_last = 0;
 
-
 function verify_index(idx) {
     if (idx < 0) return 0;
     if (idx >=  media_list.length) return media_list.length-1;
@@ -28,6 +27,140 @@ function verify_index(idx) {
 }
 
 var CacheAgeCounter = 0;
+
+/* ===== load and cache media data ==== */
+
+var media_data_requests = new Map();
+var event_queue = $.Deferred().resolve();
+
+function call_media_callback(item, media, func) {
+        if (Array.isArray(func)) {
+            func.forEach(function (func, idx, ar) { func(item, media)});
+        } else {
+            if (func != undefined)
+                func(item, media);
+        }
+}
+
+function get_media_data_from_server() {
+        if (media_data_requests.size < 1)
+            return $.Deferred.resolve();
+
+        var json_string=JSON.stringify({"ids": Array.from(media_data_requests.keys())});
+
+        return $.ajax({
+            url: urls.filmstrip,
+            type: "POST",
+            data: $.param({"csrfmiddlewaretoken":  csrftoken, "json": json_string}),
+            dataType: "json",
+            success: function(json) {
+                for (var k=0; k < json.length; k++) {
+                    var m = json[k].fields;
+                    m['ts'] = CacheAgeCounter++;
+                    m['tn'] = new Image();
+                    m['tn'].src = m['thumbnail'];
+                    var id = m['id'];
+                    media_data.set(id, m);
+                    call_media_callback(id, m, media_data_requests.get(id));
+                    media_data_requests.delete(id);
+                }
+            },
+            error: function(xhr, status, errorThrown) {
+                console.log("Error: "+errorThrown);
+                console.log("Status: "+status);
+                console.dir( xhr);
+            }
+        });
+}
+
+function get_single_media_from_cache(item, func) {
+    if (media_data.has(item)) {
+        // console.log(item," in cache");
+        var m=media_data.get(item);
+        m['ts'] = CacheAgeCounter++;
+        call_media_callback(item, m, func);
+        return true;
+    }
+
+    // console.log(item,"not in cache");
+    return false;
+}
+
+function get_media_data_from_cache(items, func) {
+    var toload = new Array();
+    if (items == undefined)
+        return toload;
+
+    var ids;
+    if (typeof items == 'number')
+        ids = [items];
+
+    if (Array.isArray(items))
+        ids = items;
+
+    for (var k=0; k < ids.length; k++) {
+        if (!get_single_media_from_cache(ids[k], func))
+            toload.push(ids[k]);
+    }
+
+    return toload;
+}
+
+function enqueue_media_data_requests(items, func) {
+    for (var k = 0; k < items.length; k++) {
+        if (media_data_requests.has(items[k])) {
+            var func_list = media_data_requests.get(items[k]);
+            var f;
+            for (f = 0; f < func_list.length; f++) {
+                if (func.name == func_list[f].name) {
+                    func_list[f] = func;
+                    break;
+                }
+            }
+            if (f == func_list.length)
+                func_list.push(func);
+        } else {
+            media_data_requests.set(items[k], new Array(func));
+        }
+    }
+}
+
+function get_media_data_deferred() {
+    media_data_requests.forEach(function (func, item, map) {
+        if (get_single_media_from_cache(item, func))
+            media_data_requests.delete(item);
+    });
+    if (media_data_requests.size > 0)
+        event_queue = get_media_data_from_server().then(get_media_data_deferred);
+}
+
+function get_media_data(items, func) {
+    enqueue_media_data_requests(get_media_data_from_cache(items, func), func);
+
+    if (media_data_requests.size > 0) {
+        if (event_queue.state() != "pending") {
+            event_queue = get_media_data_from_server().then(get_media_data_deferred);
+        }
+
+        var len = media_data.size - cache_size;
+        if (len > 0) {
+            var ats = new Array();
+            var cur_id = media_list[cur_catalog_idx];
+            media_data.forEach(function(val, key, obj) {
+            if (val['id'] != cur_id)        // do not expire current image
+                    ats.push([val['ts'], key]);
+            });
+            ats.sort(function(a, b) { return a[0]-b[0]; });
+            // console.log('expiring', len, 'out of', ats.length, 'cache entries');
+            for (var k=0; k < len; k++) {
+                // console.log('expiring', ats[k][1]);
+                media_data.delete(ats[k][1]);
+            }
+        }
+    }
+
+    return $.Deferred().resolve();
+}
 
 /* ===== set preview image ===== */
 
@@ -61,9 +194,21 @@ function set_preview_image(media) {
 
         window.location.hash=media.id;
         set_filmstrip_slide();
+        preload_preview();
         $("#image-fullsize").attr("src", media.fullsize);
         $("#media-home").attr("href", urls.index+"#"+media.id);
     }
+}
+
+function preload_preview() {
+    var first = verify_index(cur_filmstrip_first-filmstrip_prefetch);
+    var last = verify_index(cur_filmstrip_last+filmstrip_prefetch);
+    get_media_data(media_list.slice(first, last+1), function gmd_preview(id, m) {
+        if (m.pv == undefined) {
+            m.pv = new Image();
+            m.pv.src = m.preview;
+        }
+    });
 }
 
 /* ===== helper functions for preview window ===== */
@@ -159,100 +304,22 @@ function update_metadata_main(data) {
 
 /* ===== filmstrip ===== */
 
-var event_queue = $.Deferred().resolve();
-function get_media_data_from_server(json_string, func) {
-        return $.ajax({
-            url: urls.filmstrip,
-            type: "POST",
-            data: $.param({"csrfmiddlewaretoken":  csrftoken, "json": json_string}),
-            dataType: "json",
-            success: function(json) {
-                for (var k=0; k < json.length; k++) {
-                    var m = json[k].fields;
-                    m['ts'] = CacheAgeCounter++;
-                    m['tn'] = new Image();
-                    m['tn'].src = m['thumbnail'];
-                    media_data.set(m['id'], m);
-                    func(m['id'], m);
-                }
-            },
-            error: function(xhr, status, errorThrown) {
-                console.log("Error: "+errorThrown);
-                console.log("Status: "+status);
-                console.dir( xhr);
-            }
-        });
-}
-
-function get_media_data_from_cache(items, func) {
-    var toload = new Array();
-    var ids;
-
-    if (typeof items == 'number')
-        ids = [items];
-
-    if (Array.isArray(items))
-        ids = items;
-
-    for (var k=0; k < ids.length; k++) {
-        if (media_data.has(ids[k])) {
-            // console.log(ids[k]," in cache");
-            var m=media_data.get(ids[k]);
-            m['ts'] = CacheAgeCounter++;
-            func(ids[k], m);
-        } else {
-            // console.log(ids[k]," not in cache");
-            toload.push(ids[k]);
-        }
-    }
-
-    return toload;
-}
-
-var last_event;
-function get_media_data(items, func) {
-    var toload = get_media_data_from_cache(items, func);
-
-    if (toload.length > 0) {
-        if (event_queue.state() == "pending") {
-            last_event = last_event.then(function() { return get_media_data(toload, func); });
-        } else {
-            event_queue = get_media_data_from_server(JSON.stringify({"ids": toload}), func);
-            last_event = event_queue;
-        }
-
-        var len = media_data.size - cache_size;
-        if (len > 0) {
-            var ats = new Array();
-            var cur_id = media_list[cur_catalog_idx];
-            media_data.forEach(function(val, key, obj) {
-            if (val['id'] != cur_id)        // do not expire current image
-                    ats.push([val['ts'], key]);
-            });
-            ats.sort(function(a, b) { return a[0]-b[0]; });
-            // console.log('expiring', len, 'out of', ats.length, 'cache entries');
-            for (var k=0; k < len; k++) {
-                // console.log('expiring', ats[k][1]);
-                media_data.delete(ats[k][1]);
-            }
-        }
-    }
-
-    return $.Deferred().resolve();
-}
-
 function set_media_by_slide() {
     media_by_slide = media_list.slice(cur_filmstrip_first, cur_filmstrip_last+1);
 }
 
 function setup_slide(slide, data) {
             var idx = media_list.indexOf(data.id);
+            if (idx < cur_filmstrip_first || idx > cur_filmstrip_last)
+                return;
+
             var sl = $("#slide_"+slide);
             var tn = $("div.thumbnail-image", sl);
 
             $(sl).data("media", data.id);
             $(sl).data("media_idx", idx);
             $(tn).css("background-image", "url("+data["tn"].src+")");
+            $(tn).off("click vclick");
             $(tn).on("click vclick", {media: data}, function(ev) {
                 set_preview_image(ev.data.media);
             });
@@ -262,9 +329,8 @@ function setup_slide(slide, data) {
             data.slide = slide;
             update_metadata_filmstrip(data);
             $(sl).show();
-
-            data.pv = new Image();
-            data.pv.src = data.preview;
+            // data.pv = new Image();
+            // data.pv.src = data.preview;
 }
 
 function reload_filmstrip(refresh_preview) {
@@ -557,7 +623,6 @@ function slide_stop_scroll(ev) {
     $(this).off("mousemove");
     $(this).off("vmousemove");
 }
-
 
 
 /* ===== bulk operations ===== */
@@ -876,19 +941,6 @@ function view_fullsize() {
         });
 
         $(img).panzoom("zoom", scale_factor, {focal: {clientX: 0, clientY: 0}});
-
-        $("#image-fullsize").on("mousewheel", function(ev) {
-            console.log("wheel");
-            ev.preventDefault();
-            var delta = ev.delta || ev.originalEvent.wheelDelta;
-            var zoom_out = delta? delta < 0: ev.originalEvent.deltaY > 0;
-            $(img).panzoom("zoom", zoom_out, {
-                increment: 0.05,
-                animate: false,
-                focal: ev,
-            });
-        });
-
 }
 
 /* ===== initializing ==== */
@@ -935,7 +987,6 @@ function lighttable_setup(args) {
 
     $.mobile.loading("show");
 
-    // set_preview_image();
     setup_filmstrip();
     $(".image-center-overlay").on("dragstart", function() { return false; });
 
@@ -948,6 +999,17 @@ function lighttable_setup(args) {
     $("div.preview").on("swipeleft", next_image);
 
     $("div.image-preview-container").on("click", view_fullsize);
+
+    $("#image-fullsize").on("mousewheel", {img: $(".image-fullsize")}, function(ev) {
+        ev.preventDefault();
+        var delta = ev.delta || ev.originalEvent.wheelDelta;
+        var zoom_out = delta? delta < 0: ev.originalEvent.deltaY > 0;
+        $(ev.data.img).panzoom("zoom", zoom_out, {
+            increment: 0.05,
+            animate: false,
+            focal: ev,
+        });
+    });
 
     $("div.image-fullsize-close").on("click", function() {
         $(".page-image").hide();
