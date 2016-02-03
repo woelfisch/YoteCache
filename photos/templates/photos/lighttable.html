@@ -76,6 +76,25 @@
         color: #a0a0a0;
         font-size: 36pt;
     }
+
+    .video {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        z-index: 0;
+        margin: 0px;
+    }
+
+    .video-close {
+        position: absolute;
+        top: 15x;
+        right: 10px;
+        width: 1em;
+        height: 1em;
+        z-index: 1;
+        color: #a0a0a0;
+        font-size: 36pt;
+    }
 </style>
 <script>
     $(document).ready(function() {
@@ -194,15 +213,18 @@
 </div>
 </div> <!-- page-lighttable -->
 
-<div class="page-image" data-role="none" data-enhanced="true" style="display: none">
-        <div class="image-fullsize" data-role="none" data-enhanced="true"><img id="image-fullsize" class="panzoom"></div>
+<div class="page-image" data-role="none" style="display: none">
+        <div class="image-fullsize" data-role="none"><img id="image-fullsize" class="panzoom"></div>
         <div class="image-fullsize-close">&times;</div>
 </div>
 
 <div class="page-video" style="display: none">
-    <video controls data-role="none">
-        <img src="{% static-image 'unavailable' %}">
-    </video>
+    <div class="video" data-role="none">
+        <video id="video" controls data-role="none">
+            <img src="{% static-image 'unavailable' %}">
+        </video>
+    </div>
+    <div class="video-close">&times;</div>
 </div>
 
 <div class="modal" id="bulk-action-modal" tabindex="-1" role="dialog">
