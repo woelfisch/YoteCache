@@ -357,7 +357,18 @@ class ImportMedia(object):
 
         (mediareldir, jpegfilename) = os.path.split(os.path.relpath(source_file, settings.SOURCE_DIR))
         mediadir = settings.WEB_DIR + mediareldir
-        jpegfilename = os.path.splitext(jpegfilename)[0] + ".jpg"
+        (basename, extension) = os.path.splitext(jpegfilename)
+        jpegfilename = basename + ".jpg"
+        mediafilename = basename + extension.lower()
+
+        self.status.update(10, 'Linking Source File')
+        try:
+            mediadir = settings.WEB_DIR + mediareldir
+            mediafullpath = mediadir + '/' + mediafilename
+            tools.mkdir(mediadir)
+            tools.link(source_file, mediafullpath)
+        except Exception as e:
+            raise e
 
         self.status.update(50, 'Writing Thumbnail and Proxy')
         try:
@@ -365,6 +376,7 @@ class ImportMedia(object):
             tnfullpath = tndir + '/' + jpegfilename
             tools.mkdir(tndir)
         except Exception as e:
+            os.unlink(mediafullpath)
             raise e
 
         try:
@@ -372,6 +384,7 @@ class ImportMedia(object):
             webimgfullpath = webimgdir + '/' + jpegfilename
             tools.mkdir(webimgdir)
         except Exception as e:
+            os.unlink(mediafullpath)
             os.unlink(tnfullpath)
             raise e
 

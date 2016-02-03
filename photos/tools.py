@@ -121,14 +121,17 @@ def www_user():
     return getpwnam('nobody').pw_uid
 
 
-def proxyfile(media_file):
+def proxyfile(media_file, converted=True):
     if not media_file or not media_file.mime_type:
         return None
 
     mt = media_file.mime_type.type
     if mt.startswith('video'):
         # used to be animated gifs until I found out how crappy Safari is...
-        extension = ".jpg"
+        if converted:
+            extension = ".jpg"
+        else:
+            extension = get_extension(media_file.media_file)
     elif mt.startswith('image'):
         extension = ".jpg"
     else:
@@ -164,7 +167,7 @@ def preview(media_file):
 
 
 def fullsize(media_file):
-    proxy = proxyfile(media_file)
+    proxy = proxyfile(media_file, converted=False)
     if not proxy:
         return settings.STATIC_URL + settings.FULLSIZE_UNAVAILABLE
 
