@@ -199,12 +199,14 @@ function set_preview_image(media) {
         $("#media-home").attr("href", urls.index+"#"+media.id);
 
         if (media.mime_type.startsWith("image/")) {
+            $("#video").attr("src", "");
             $("#image-fullsize").attr("src", media.fullsize);
             $("div.image-preview-container").off("click");
             $("div.image-preview-container").on("click", view_fullsize);
         } else if (media.mime_type.startsWith("video/")) {
             $("div.image-preview-container").off("click");
             $("div.image-preview-container").on("click", view_video);
+            $("#image-fullsize").attr("src", "");
             $("#video").attr("src", media.fullsize);
         }
     }
@@ -955,12 +957,6 @@ function view_fullsize() {
 
 function view_video() {
     $(".page-lighttable").hide();
-    $("#video").bind("loadedmetadata", function () {
-        var page_width = $(".page-lighttable").get(0).clientWidth;
-        var width = this.videoWidth;
-        if (width > page_width) width = page_width;
-        $("#video").css('width', width);
-    });
     $(".page-video").show();
 }
 
@@ -1035,9 +1031,16 @@ function lighttable_setup(args) {
         $(".page-lighttable").show();
     });
 
+    $("#video").bind("loadedmetadata", function () {
+        var page_width = $(window).innerWidth();
+        var video_width = this.videoWidth;
+
+        if (video_width > page_width)
+            $(this).css("width", page_width);
+    });
+
     $("div.video-close").on("click", function() {
         $(".page-video").hide();
-        $("#video").attr("src", "");
         $(".page-lighttable").show();
     });
 
