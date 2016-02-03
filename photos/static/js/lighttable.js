@@ -955,6 +955,12 @@ function view_fullsize() {
 
 function view_video() {
     $(".page-lighttable").hide();
+    $("#video").bind("loadedmetadata", function () {
+        var page_width = $(".page-lighttable").get(0).clientWidth;
+        var width = this.videoWidth;
+        if (width > page_width) width = page_width;
+        $("#video").css('width', width);
+    });
     $(".page-video").show();
 }
 
@@ -1031,6 +1037,7 @@ function lighttable_setup(args) {
 
     $("div.video-close").on("click", function() {
         $(".page-video").hide();
+        $("#video").attr("src", "");
         $(".page-lighttable").show();
     });
 
