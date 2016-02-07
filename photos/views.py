@@ -71,6 +71,32 @@ def lighttable(request, catalog_id):
         'strip_ids': range(1, 7),
     })
 
+def browser_test(request, catalog_id):
+    if not request.user.is_authenticated():
+        return login_redirector(request)
+
+    if not request.user.has_perm(_PERM_VIEW):
+        raise PermissionDenied
+
+    catalog = get_object_or_404(Catalog, id=catalog_id)
+    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('date', 'filename').values('id')
+
+    try:
+        media_first = MediaFile.objects.get(id=filmstrip[0]['id'])
+        media_last = MediaFile.objects.get(id=filmstrip[len(filmstrip) - 1]['id'])
+    except Exception as e:
+        media_first = None
+        media_last = None
+
+    return render(request, 'photos/browser_test.html', {
+        'catalog': catalog,
+        'catalog_list': Catalog.objects.order_by('id'),
+        'filmstrip': filmstrip,
+        'first': media_first,
+        'last': media_last,
+        'strip_ids': range(1, 7),
+    })
+
 @requires_csrf_token
 def filmstrip(request):
     if not request.user.has_perm(_PERM_VIEW):
