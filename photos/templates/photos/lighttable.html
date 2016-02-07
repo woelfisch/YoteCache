@@ -268,14 +268,14 @@
 <div class="page-browser">
     <nav class="navbar navbar-default">
         <div class="container-fluid">
-            <div class="navbar-header">
+            <div class="navbar-header" data-target="#browser-navbar">
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </div>
             <a class="navbar-brand" data-ajax="false" href="{% url 'index' %}#{{catalog.id}}">PhotoYote</a>
 
-            <div class="collapse navbar-collapse navbar-right">
+            <div class="navbar-collapse navbar-right" id="browser-navbar">
                 <div class="btn-group" role="group" data-role="none">
                     <button type="button" id="browser-go-first" class="btn btn-default navbar-btn" data-role="none">
                         <span class="glyphicon glyphicon-fast-backward"></span></button>

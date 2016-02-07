@@ -92,7 +92,7 @@ def filmstrip(request):
     if not ('ids' in action):
         return HttpResponseBadRequest('<p>Incomplete JSON</p>')
 
-    media = MediaFile.objects.filter(id__in=action['ids']).order_by('date', 'filename')
+    media = MediaFile.objects.filter(id__in=action['ids']) # order_by('date', 'filename')
 
     if 'set' in action:
         may_modify = request.user.has_perm(_PERM_CHANGE)
