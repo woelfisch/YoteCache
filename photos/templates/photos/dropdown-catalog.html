@@ -1,5 +1,5 @@
-<div class="dropdown {{name}}">
-    <button class="btn btn-default dropdown-toggle" type="button" id="{{name}}" data-toggle="dropdown" data-role="none">
+<div class="dropdown {{name}} {% if dropdown_class %}{{dropdown_class}}{% endif %}" role="group">
+    <button class="btn btn-default dropdown-toggle {% if button_class %}{{button_class}}{% endif %}" type="button" id="{{name}}" data-toggle="dropdown" data-role="none">
         <span id="{{name}}-selected-icon" class="glyphicon glyphicon-folder-open {% if not has_icon %}hide{% endif %}"></span>
         <span id="{{name}}-selected" class="{{name}}-title">{{catalog}}</span>
         <span class="caret"></span>

@@ -1,5 +1,6 @@
 var this_catalog = "unknown";
 var media_list = [];
+var catalog_list = new Map();
 var urls = {};
 
 var first_date = display_timestamp(new Date(Date.now()).toISOString());
@@ -42,6 +43,12 @@ function call_media_callback(item, media, func) {
         }
 }
 
+function ajax_error_handler(xhr, status, errorThrown) {
+    console.log("Error: "+errorThrown);
+    console.log("Status: "+status);
+    console.dir( xhr);
+}
+
 function media_data_ajax_request(json_string, func) {
         return $.ajax({
             url: urls.filmstrip,
@@ -59,11 +66,7 @@ function media_data_ajax_request(json_string, func) {
                     func(id, m);
                 }
             },
-            error: function(xhr, status, errorThrown) {
-                console.log("Error: "+errorThrown);
-                console.log("Status: "+status);
-                console.dir( xhr);
-            }
+            error: ajax_error_handler,
         });
 }
 
@@ -277,6 +280,24 @@ function sanitize_catalog(catalog) {
 }
 
 function amend_catalog_dropdown(catalog, name, click_handler) {
+    if (!catalog_list.has(catalog)) {
+        catalog_list.set(catalog, -1);
+        $.ajax({
+            url: urls.catalogid,
+            type: "POST",
+            data: $.param({"csrfmiddlewaretoken":  csrftoken, "json": JSON.stringify(catalog)}),
+            dataType: "json",
+            success: function(json) {
+                id = json*1;
+                if (id < 0)
+                    catalog_list.delete(catalog);
+                else
+                    catalog_list.set(catalog, id);
+            },
+            error: ajax_error_handler,
+        });
+    }
+
     var found=false;
     $("."+name+"-link").each(function(idx) {
         if (sanitize_catalog($(this).text()) ==  catalog) {
@@ -286,11 +307,11 @@ function amend_catalog_dropdown(catalog, name, click_handler) {
     });
     if (found) return;
 
-    catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
+    var esc_catalog=catalog.replace(/[<>&'"]/g, function(s) { return "&#"+s.charCodeAt(0)+";"});
 
     var new_element = $(
     '<li role="presentation" class="'+name+'-item">'+
-    '   <a role="menuitem" tabindex="-1" href="#" class="'+name+'-link">'+catalog+'</a>'+
+    '   <a role="menuitem" tabindex="-1" href="#" class="'+name+'-link">'+esc_catalog+'</a>'+
     '</li>');
 
     new_element.insertBefore("."+name+" > ul > .endoflist");
@@ -299,9 +320,10 @@ function amend_catalog_dropdown(catalog, name, click_handler) {
 }
 
 function show_catalog_main(catalog) {
-    amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
-    amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
-    amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
+    amend_catalog_dropdown(catalog, "media-catalog", set_catalog);
+    amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog);
+    amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog);
+    amend_catalog_dropdown(catalog, "browser-catalog", browser_set_catalog);
 }
 
 function update_metadata_main(data) {
@@ -861,9 +883,10 @@ function bulk_action_set_catalog() {
 function bulk_action_add_catalog() {
     var catalog = sanitize_catalog($(this).val());
     $(this).val("");
-    amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog)
-    amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog)
-    amend_catalog_dropdown(catalog, "media-catalog", set_catalog)
+    amend_catalog_dropdown(catalog, "bulk-action-catalog", bulk_action_set_catalog);
+    amend_catalog_dropdown(catalog, "bulk-condition-catalog", bulk_condition_set_catalog);
+    amend_catalog_dropdown(catalog, "media-catalog", set_catalog);
+    amend_catalog_dropdown(catalog, "browser-catalog", browser_set_catalog)
     $(".bulk-action-catalog > ul > .bulk-action-catalog-item :last").click();
 }
 
@@ -901,9 +924,7 @@ function bulk_submit() {
             $.mobile.loading("hide");
         },
         error: function(xhr, status, errorThrown) {
-            console.log("Error: "+errorThrown);
-            console.log("Status: "+status);
-            console.dir( xhr);
+            ajax_error_handler(xhr, status, errorThrown);
             $.mobile.loading("hide");
         }
     });
@@ -1116,6 +1137,11 @@ function browser_stop_scroll(ev) {
     $(this).off("vmousemove");
 }
 
+function browser_set_catalog() {
+    var catalog = sanitize_catalog($(this).text());
+    var url = urls.index+catalog_list.get(catalog)+"/";
+    document.location.assign(url);
+}
 
 /* ===== initializing ==== */
 
@@ -1131,6 +1157,10 @@ function lighttable_setup_vars(args) {
     if (args.urls == undefined)
         throw "lighttable_setup: urls missing";
     urls = args.urls;
+
+    if (args.catalog_list)
+        for (var cat in args.catalog_list)
+            catalog_list.set(cat, args.catalog_list[cat]);
 
     if (args.start_date != undefined)
         first_date = args.start_date;
@@ -1177,6 +1207,8 @@ function lighttable_setup(args) {
 
     $(window).trigger("resize");
 
+    amend_catalog_dropdown("test", "XXX-test-XXX", undefined);
+
     setup_browser();
 
     $(matrix).on("mousedown vmousedown", browser_start_scroll);
@@ -1212,11 +1244,17 @@ function lighttable_setup(args) {
         }
     });
 
+    $(".browser-catalog-link").on("click", browser_set_catalog);
+
     $("#media-home").on("click", function () {
         $(".page-lighttable").hide();
         $(".page-browser").show();
         setup_browser();
-    })
+    });
+
+    $("#media-home").on("taphold", function () {
+        document.location.assign(urls.index);
+    });
 
     $(".image-center-overlay").on("dragstart", function() { return false; });
 

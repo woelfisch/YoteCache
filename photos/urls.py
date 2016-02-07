@@ -6,5 +6,6 @@ urlpatterns = patterns('',
                        url(r'^(?P<catalog_id>\d+)/', views.lighttable, name='lighttable'),
                        url(r'^bulk/', views.bulk, name='bulk'),
                        url(r'^status/', views.status, name='status'),
+                       url(r'^catalogid/', views.catalogid, name='catalogid'),
                        url(r'^filmstrip/', views.filmstrip, name='filmstrip')
                        )

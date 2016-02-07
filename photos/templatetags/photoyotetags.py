@@ -99,13 +99,21 @@ def star_rating(rating, **kwargs):
 
 @register.inclusion_tag("photos/dropdown-catalog.html", takes_context=True)
 def dropdown_catalog(context, **kwargs):
-    return {
+    args = {
         "catalog": context["catalog"],
         "catalog_list": context["catalog_list"],
         "name": kwargs["name"],
         "has_input_field": "has_input_field" in kwargs,
         "has_icon": "has_icon" in kwargs
     }
+
+    if "button_class" in kwargs:
+        args["button_class"] = kwargs["button_class"]
+
+    if "dropdown_class" in kwargs:
+         args["dropdown_class"] = kwargs["dropdown_class"]
+
+    return args
 
 
 @register.inclusion_tag("photos/dropdown-label.html", takes_context=False)

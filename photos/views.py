@@ -36,13 +36,20 @@ def index(request):
     for catalog in catalog_list:
         # filename contains a timestamp, otherwise: order_by('date', 'filename')
         media_files = MediaFile.objects.filter(catalog=catalog).exclude(rejected=True).exclude(
-            mime_type__hide=True).order_by('filename')
+            mime_type__hide=True).order_by('date', 'filename')
         count = media_files.count()
-        if count > settings.INDEX_THUMBNAILS_MAX:
-            num = settings.INDEX_THUMBNAILS_MAX/2
-            media_files=list(media_files[:num]) +list(media_files[count-num:count])
+
+        if count <= 18:
+            ml = list(media_files[:18])
+        elif count <= 24:
+            ml = list(media_files[:6])+list(media_files[count-12:count])
+        else:
+            midrow = count/6*2
+            ml = list(media_files[:6])+list(media_files[midrow:midrow+6])+list(media_files[count-6:count])
+
+        print(catalog, ml)
         # the template engine cannot dereference dicts based on variables
-        all_media_list.append([catalog, media_files, count])
+        all_media_list.append([catalog, ml, count])
     return render(request, 'photos/index.html', {'catalog_list': catalog_list, 'all_media_list': all_media_list})
 
 def lighttable(request, catalog_id):
@@ -68,33 +75,6 @@ def lighttable(request, catalog_id):
         'filmstrip': filmstrip,
         'first': media_first,
         'last': media_last,
-        'strip_ids': range(1, 7),
-    })
-
-def browser_test(request, catalog_id):
-    if not request.user.is_authenticated():
-        return login_redirector(request)
-
-    if not request.user.has_perm(_PERM_VIEW):
-        raise PermissionDenied
-
-    catalog = get_object_or_404(Catalog, id=catalog_id)
-    filmstrip = MediaFile.objects.filter(catalog__id=catalog_id).exclude(mime_type__hide=True).order_by('date', 'filename').values('id')
-
-    try:
-        media_first = MediaFile.objects.get(id=filmstrip[0]['id'])
-        media_last = MediaFile.objects.get(id=filmstrip[len(filmstrip) - 1]['id'])
-    except Exception as e:
-        media_first = None
-        media_last = None
-
-    return render(request, 'photos/browser_test.html', {
-        'catalog': catalog,
-        'catalog_list': Catalog.objects.order_by('id'),
-        'filmstrip': filmstrip,
-        'first': media_first,
-        'last': media_last,
-        'strip_ids': range(1, 7),
     })
 
 @requires_csrf_token
@@ -295,6 +275,23 @@ def bulk(request):
     # response = serializers.serialize('json', media_list, use_natural_foreign_keys=True)
     response = json.dumps(changed_ids)
     return HttpResponse(content=response, content_type='application/json')
+
+@requires_csrf_token
+def catalogid(request):
+    if not request.user.has_perm(_PERM_VIEW):
+        return HttpResponseForbidden()
+    if 'json' not in request.POST:
+        return HttpResponseBadRequest('<p>Missing parameter in POST</p>')
+    try:
+        action = json.loads(request.POST['json'])
+    except:
+        return HttpResponseBadRequest('<p>Broken JSON</p>')
+    try:
+        catalog = Catalog.objects.get(name=action)
+        id = catalog.id
+    except:
+        id = -1
+    return HttpResponse(content=json.dumps(id), content_type='application/json')
 
 
 @csrf_exempt
