@@ -24,7 +24,7 @@ See [Notes.md](Notes.md) for some hints on how to build your own appliance.
 
 ## Third party software dependencies and copyrights
 
-Note that the following components are required for PhotoYote to work but are not part of the git repository.
+Note that the following components are required for PhotoYote to work but ~~are not~~ *should not be* part of the git repository.
 
 ### The server side
 PhotoYote is written in Python. Apart from the Python interpreter itself and dependencies on the Python standard
