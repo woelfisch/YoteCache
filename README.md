@@ -7,9 +7,10 @@ the conditions of the [GNU General Public License v3.0](http://www.gnu.org/licen
 ## About
 
 **Photoyote** is an advanced "image tank" appliance with a HTML5 GUI for mobile devices such as tablets and
-smartphones. It can import files from flash card readers and cameras (PTP and mass storage). The web frontend has
-been tested with various Android and iOS web browsers. It supports multiple catalogs, star rating, color labels and
-control of what gets exported. No original images or movies will be overwritten or deleted by the frontend.
+smartphones. It can import files from flash card readers and cameras (PTP and mass storage) and create previews of
+RAW and other image or video files. The web frontend has been tested with various Android and iOS web browsers. 
+It supports multiple catalogs, star rating, color labels and control of what gets exported. No original images
+or movies will be overwritten or deleted by the frontend.
 
 ## Implementation notes
 
